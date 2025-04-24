@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hocky_na_org/On%20Boarding/TandCs.dart'; // Import T&Cs
 import 'package:hocky_na_org/home_page.dart'; // Import the placeholder Homepage
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+
+import '../login_screen.dart';
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});
@@ -17,7 +18,7 @@ class _OnboardingState extends State<Onboarding> {
   void navigateToTandCs(BuildContext context) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const TandCs()),
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 

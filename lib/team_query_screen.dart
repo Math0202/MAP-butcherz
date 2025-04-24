@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-// Remove homepage import
-// import 'package:hocky_na_org/home_page.dart';
-import 'package:hocky_na_org/login_screen.dart'; // Import the Login Screen
+import 'home_page.dart'; // Import the Login Screen
 
 class TeamQueryScreen extends StatelessWidget {
   const TeamQueryScreen({super.key});
@@ -10,9 +8,9 @@ class TeamQueryScreen extends StatelessWidget {
   void _navigateToLogin(BuildContext context) {
     // Use pushReplacement if you don't want users going back to the query screen
     // Use push if you want them to be able to go back
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      MaterialPageRoute(builder: (context) => const Homepage()),
     );
   }
 
