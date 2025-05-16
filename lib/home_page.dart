@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hocky_na_org/login_screen.dart'; // Import for logout functionality
+import 'package:hocky_na_org/manage_roster_screen.dart'; // Import the ManageRosterScreen
+import 'package:hocky_na_org/enter_events_screen.dart'; // Import the new screen
+import 'package:hocky_na_org/notifications_screen.dart'; // Import the NotificationsScreen
+import 'package:hocky_na_org/notifications_screen.dart' show NotificationItem;
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -10,14 +13,65 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage> {
   int _selectedIndex = 0;
-  
+  int _unreadNotificationsCount = 0; // State variable for the count
+
   // Define the pages to be shown for each tab
   final List<Widget> _pages = [
     const _HomeTab(), // Dashboard/Home content
-    const _MatchesTab(), // Games/Matches content
-    const _TeamsTab(), // Teams content
+    const EnterEventsScreen(), // Games/Matches content
+    const ManageRosterScreen(), // Teams content
     const _ProfileTab(), // Profile content
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUnreadNotificationsCount(); // Fetch initial count
+  }
+
+  // Simulate fetching unread notifications count
+  void _fetchUnreadNotificationsCount() {
+    // In a real app, this would come from a shared service or database.
+    // For demonstration, we use a copy of the logic/dummy data structure
+    // from NotificationsScreen.
+    final List<NotificationItem> dummyNotifications = [
+      NotificationItem(
+        id: '1',
+        title: 'Match Reminder: Team A vs Team B',
+        subtitle: 'Starts in 1 hour at City Arena',
+        timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
+        icon: Icons.sports_hockey,
+        iconColor: Colors.blue,
+        isRead: false,
+      ),
+      NotificationItem(
+        id: '2',
+        title: 'New League Announcement!',
+        subtitle: 'The Winter League registration is now open.',
+        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+        icon: Icons.campaign,
+        iconColor: Colors.green,
+        isRead: false,
+      ),
+      NotificationItem(
+        id: '3',
+        title: 'Roster Update Approved',
+        subtitle: 'Player John Smith added to your team.',
+        timestamp: DateTime.now().subtract(const Duration(hours: 5)),
+        icon: Icons.group_add,
+        iconColor: Colors.orange,
+        isRead: true,
+      ),
+      // Add more dummy notifications if needed to match NotificationsScreen for accurate simulation
+    ];
+    if (mounted) {
+      // Check if the widget is still in the tree
+      setState(() {
+        _unreadNotificationsCount =
+            dummyNotifications.where((n) => !n.isRead).length;
+      });
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -28,22 +82,157 @@ class _HomepageState extends State<Homepage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
-      drawer: _buildDrawer(context),
-      
       appBar: AppBar(
-        title: const Text('OnHockey'),
-        centerTitle: true,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          color: theme.scaffoldBackgroundColor,
+          onPressed: () {},
+        ),
+
+        title: const Text('Hockey.org Namibia'),
+        //centerTitle: true,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: Implement notifications view
+            icon: Badge(
+              label: Text(_unreadNotificationsCount.toString()),
+              isLabelVisible: _unreadNotificationsCount > 0,
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            onPressed: () async {
+              // Make onPressed async
+              await Navigator.push(
+                // Await the result of NotificationsScreen
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationsScreen(),
+                ),
+              );
+              // Refresh count when returning from NotificationsScreen
+              _fetchUnreadNotificationsCount();
             },
           ),
         ],
       ),
+      /*drawer: Drawer(
+        // Add the Drawer widget here
+        child: ListView(
+          padding: EdgeInsets.zero, // Remove padding from ListView
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(color: theme.colorScheme.primary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: theme.colorScheme.onPrimary.withOpacity(
+                      0.8,
+                    ),
+                    child: Icon(
+                      Icons.person,
+                      size: 30,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'User Name', // Replace with actual user name
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: theme.colorScheme.onPrimary,
+                    ),
+                  ),
+                  Text(
+                    'user.email@example.com', // Replace with actual user email
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onPrimary.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.home_outlined),
+              title: const Text('Home'),
+              onTap: () {
+                _onItemTapped(0); // Navigate to Home tab
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.sports_hockey_outlined),
+              title: const Text('Matches'),
+              onTap: () {
+                _onItemTapped(1); // Navigate to Matches tab
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('Teams'),
+              onTap: () {
+                _onItemTapped(2); // Navigate to Teams tab
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Profile'),
+              onTap: () {
+                _onItemTapped(3); // Navigate to Profile tab
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.emoji_events_outlined),
+              title: const Text('Enter Events'),
+              onTap: () {
+                Navigator.pop(context); // Close the drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const EnterEventsScreen(),
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Settings'),
+              onTap: () {
+                // TODO: Navigate to Settings Screen
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('About'),
+              onTap: () {
+                // TODO: Navigate to About Screen
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.logout, color: theme.colorScheme.error),
+              title: Text(
+                'Logout',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+              onTap: () {
+                // TODO: Implement Logout Logic
+                Navigator.pop(context); // Close the drawer
+                // Example: Navigator.pushReplacementNamed(context, '/login');
+              },
+            ),
+          ],
+        ),
+      ),*/
       body: _pages[_selectedIndex], // Show the selected tab content
       bottomNavigationBar: NavigationBar(
         onDestinationSelected: _onItemTapped,
@@ -75,160 +264,6 @@ class _HomepageState extends State<Homepage> {
       ),
     );
   }
-  
-  Widget _buildDrawer(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-            ),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Image.asset(
-                'assets/hocky_circle.jpg',
-                height: 40,
-                width: 40,
-              ),
-            ),
-            accountName: const Text('John Doe'),
-            accountEmail: const Text('john.doe@example.com'),
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.dashboard_outlined),
-            title: const Text('Dashboard'),
-            selected: _selectedIndex == 0,
-            onTap: () {
-              _onItemTapped(0);
-              Navigator.pop(context);
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.calendar_today),
-            title: const Text('Schedule'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: Navigate to schedule view
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.equalizer),
-            title: const Text('Statistics'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: Navigate to statistics view
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.group),
-            title: const Text('My Team'),
-            selected: _selectedIndex == 2,
-            onTap: () {
-              _onItemTapped(2);
-              Navigator.pop(context);
-            },
-          ),
-          
-          const Divider(),
-          
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Settings'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: Navigate to settings
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: const Text('Help & Feedback'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: Navigate to help
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('About'),
-            onTap: () {
-              Navigator.pop(context);
-              _showAboutDialog(context);
-            },
-          ),
-          
-          const Divider(),
-          
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout', style: TextStyle(color: Colors.red)),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutConfirmation(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-  
-  void _showAboutDialog(BuildContext context) {
-    showAboutDialog(
-      context: context,
-      applicationName: 'OnHockey',
-      applicationVersion: '1.0.0',
-      applicationIcon: Image.asset(
-        'assets/hocky_circle.jpg', 
-        height: 50, 
-        width: 50
-      ),
-      applicationLegalese: '© 2023 Hockey NA Organization',
-      children: [
-        const SizedBox(height: 20),
-        const Text(
-          'OnHockey is the official app for hockey players in Namibia. '
-          'Manage your team, view schedules, and track your performance all in one place.'
-        ),
-      ],
-    );
-  }
-  
-  void _showLogoutConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('CANCEL'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              },
-              child: const Text('LOGOUT'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
 
 // Placeholder widgets for each tab
@@ -241,25 +276,28 @@ class _HomeTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(
-            'assets/hocky_circle.jpg',
-            height: 120,
+          Container(
+            height: 200,
+            width: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              image: DecorationImage(
+                image: AssetImage(
+                  'assets/player_avatar_male.png',
+                ), // Replace with your image
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
           const SizedBox(height: 24),
           const Text(
-            'Welcome to OnHockey',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+            'Welcome to Hocky.org NA',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           const Text(
             'Your hockey management app',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
           const SizedBox(height: 40),
           const _FeaturedItem(
@@ -290,16 +328,9 @@ class _MatchesTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.sports_hockey,
-            size: 80,
-            color: Colors.blue,
-          ),
+          const Icon(Icons.sports_hockey, size: 80, color: Colors.blue),
           const SizedBox(height: 16),
-          Text(
-            'Matches',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
+          Text('Matches', style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
           Text(
             'View upcoming and past games',
@@ -320,16 +351,9 @@ class _TeamsTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.groups,
-            size: 80,
-            color: Colors.blue,
-          ),
+          const Icon(Icons.groups, size: 80, color: Colors.blue),
           const SizedBox(height: 16),
-          Text(
-            'Teams',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
+          Text('Teams', style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
           Text(
             'Manage your teams and players',
@@ -347,93 +371,91 @@ class _ProfileTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+    // Placeholder user data
+    const String userName = 'Alex Johnson';
+    const String userEmail = 'alex.johnson@example.com';
+    const String userAvatarUrl =
+        'assets/player_avatar_male.png'; // Add a placeholder avatar
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 20),
-          // Profile avatar with edit option
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-                child: const Icon(
-                  Icons.person,
-                  size: 80,
-                  color: Colors.blue,
-                ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.edit,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    // TODO: Implement profile edit
-                  },
-                ),
-              ),
-            ],
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            backgroundImage: const AssetImage(userAvatarUrl), // Use AssetImage
+            child:
+                !userAvatarUrl.contains('assets/') // Fallback if image fails
+                    ? Text(
+                      userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                      style: theme.textTheme.headlineLarge?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    )
+                    : null,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Text(
-            'John Doe',
-            style: theme.textTheme.headlineMedium?.copyWith(
+            userName,
+            style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'john.doe@example.com',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.hintColor,
-            ),
+            userEmail,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
           ),
-          const SizedBox(height: 40),
-          
-          // Profile menu items
+          const SizedBox(height: 30),
+          const Divider(),
           _ProfileMenuItem(
             icon: Icons.person_outline,
-            title: 'My Account',
+            title: 'Edit Profile',
             onTap: () {
-              // TODO: Navigate to account details
+              // TODO: Navigate to Edit Profile Screen
+            },
+          ),
+          _ProfileMenuItem(
+            icon: Icons.shield_outlined, // Icon for team management
+            title: 'Manage My Roster', // Text for the new item
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ManageRosterScreen(),
+                ),
+              );
             },
           ),
           _ProfileMenuItem(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
             onTap: () {
-              // TODO: Navigate to notifications settings
+              // TODO: Navigate to Notifications Settings Screen
             },
           ),
           _ProfileMenuItem(
-            icon: Icons.privacy_tip_outlined, 
-            title: 'Privacy',
+            icon: Icons.lock_outline,
+            title: 'Change Password',
             onTap: () {
-              // TODO: Navigate to privacy settings
+              // TODO: Navigate to Change Password Screen
             },
           ),
           _ProfileMenuItem(
             icon: Icons.settings_outlined,
-            title: 'Settings',
+            title: 'App Settings',
             onTap: () {
-              // TODO: Navigate to app settings
+              // TODO: Navigate to App Settings Screen
             },
           ),
+          const Divider(),
           _ProfileMenuItem(
             icon: Icons.help_outline,
             title: 'Help & Support',
             onTap: () {
-              // TODO: Navigate to help center
+              // TODO: Navigate to Help Screen
             },
           ),
           _ProfileMenuItem(
@@ -467,7 +489,7 @@ class _FeaturedItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -504,10 +526,7 @@ class _FeaturedItem extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            description,
-            style: theme.textTheme.bodyLarge,
-          ),
+          Text(description, style: theme.textTheme.bodyLarge),
           const SizedBox(height: 4),
           Text(
             dateTime,
@@ -539,12 +558,9 @@ class _ProfileMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = isDestructive ? Colors.red : theme.colorScheme.onSurface;
-    
+
     return ListTile(
-      leading: Icon(
-        icon,
-        color: color,
-      ),
+      leading: Icon(icon, color: color),
       title: Text(
         title,
         style: theme.textTheme.bodyLarge?.copyWith(
@@ -552,12 +568,9 @@ class _ProfileMenuItem extends StatelessWidget {
           fontWeight: isDestructive ? FontWeight.bold : FontWeight.normal,
         ),
       ),
-      trailing: const Icon(
-        Icons.arrow_forward_ios,
-        size: 16,
-      ),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
     );
   }
-} 
+}

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hocky_na_org/On%20Boarding/TandCs.dart'; // Import T&Cs
 import 'package:hocky_na_org/home_page.dart'; // Import the placeholder Homepage
+import 'package:hocky_na_org/login_screen.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-
-import '../login_screen.dart';
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});
@@ -29,12 +29,13 @@ class _OnboardingState extends State<Onboarding> {
         children: [
           //scrolling page view - Now with 4 pages
           PageView(
-            onPageChanged: (index) => {
-              setState(() {
-                // Update check for the last page (index 3 for 4 pages)
-                _onLastPage = (index == 3);
-              })
-            },
+            onPageChanged:
+                (index) => {
+                  setState(() {
+                    // Update check for the last page (index 3 for 4 pages)
+                    _onLastPage = (index == 3);
+                  }),
+                },
             controller: _controller,
             children: [
               // --- Page 1: Team Registration (FR1) ---
@@ -61,7 +62,8 @@ class _OnboardingState extends State<Onboarding> {
               // --- Page 4: Real-Time Info (FR4) ---
               _buildOnboardingPage(
                 // Consider a new image for this page if available
-                imagePath: 'assets/hocky_green.jpg', // Placeholder, replace if needed
+                imagePath:
+                    'assets/hocky_green.jpg', // Placeholder, replace if needed
                 title: 'Stay Updated',
                 description:
                     'Get live match scores, important announcements, news alerts, and other updates pushed directly to your device.',
@@ -85,9 +87,10 @@ class _OnboardingState extends State<Onboarding> {
                     child: const Text(
                       'Skip',
                       style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
 
@@ -118,9 +121,10 @@ class _OnboardingState extends State<Onboarding> {
                     child: Text(
                       _onLastPage ? 'Done' : 'Next',
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -166,7 +170,9 @@ class _OnboardingState extends State<Onboarding> {
           ),
           const SizedBox(height: 20), // Space between title and description
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 30.0), // Adjust padding
+            padding: const EdgeInsets.symmetric(
+              horizontal: 30.0,
+            ), // Adjust padding
             child: Text(
               description,
               style: const TextStyle(

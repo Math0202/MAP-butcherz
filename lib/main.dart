@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/On%20Boarding/Onboarding.dart';
-import 'package:hocky_na_org/home_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -163,7 +162,7 @@ class MyApp extends StatelessWidget {
       // --- Theme Mode ---
       themeMode: ThemeMode.system,
 
-      home: const /*Homepage()*/ Onboarding(),
+      home: const Onboarding(),
     );
   }
 }

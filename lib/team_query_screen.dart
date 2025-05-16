@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
+// Remove homepage import
+// import 'package:hocky_na_org/home_page.dart';
+
 import 'home_page.dart'; // Import the Login Screen
+import 'login_screen.dart'; // Assuming "YES" goes to login or find club
+import 'register_team_screen.dart'; // Import the new screen
 
 class TeamQueryScreen extends StatelessWidget {
   const TeamQueryScreen({super.key});
 
-  // Updated helper method for navigation
-  void _navigateToLogin(BuildContext context) {
-    // Use pushReplacement if you don't want users going back to the query screen
-    // Use push if you want them to be able to go back
+  // Updated helper method for navigation for "YES" button
+  void _navigateToLoginOrFindClub(BuildContext context) {
+    // This should ideally go to a screen where users can search for their club
+    // For now, let's assume it goes to the login screen, then they can find their team
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const Homepage()),
+      MaterialPageRoute(builder: (context) => const Homepage()), // Or a dedicated "Find Club" screen
+    );
+  }
+
+  // Helper method for "NO" button
+  void _navigateToCreateClub(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const RegisterTeamScreen()),
     );
   }
 
@@ -48,11 +61,10 @@ class TeamQueryScreen extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.04),
-                // "Yes" Button - Navigates to Login
+                // "Yes" Button - Navigates to Login or Find Club
                 FilledButton(
                   onPressed: () {
-                    // Navigate to Login Screen
-                    _navigateToLogin(context);
+                    _navigateToLoginOrFindClub(context);
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
@@ -68,11 +80,10 @@ class TeamQueryScreen extends StatelessWidget {
                   child: const Text('YES, FIND CLUB'),
                 ),
                 const SizedBox(height: 16),
-                // "No" Button - Also navigates to Login for now (can change later)
+                // "No" Button - Navigates to Register Team Screen
                 OutlinedButton(
                   onPressed: () {
-                    // Navigate to Login Screen (or potentially a registration screen later)
-                    _navigateToLogin(context);
+                    _navigateToCreateClub(context);
                   },
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
