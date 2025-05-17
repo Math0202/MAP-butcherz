@@ -3,6 +3,7 @@ import 'package:hocky_na_org/elements/custom_text_field.dart';
 import 'package:hocky_na_org/login_screen.dart'; // To navigate back
 import 'package:hocky_na_org/home_page.dart'; // Placeholder for navigation after sign up
 import 'package:hocky_na_org/verification_screen.dart';
+import 'package:hocky_na_org/services/user_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,22 +18,120 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isTermsAccepted = false;
   bool _showTermsSheet = false;
+  bool _isLoading = false;
 
-  // TODO: Add TextEditingControllers for email, username, password, confirm password
-  // final _emailController = TextEditingController();
-  // final _usernameController = TextEditingController();
-  // final _passwordController = TextEditingController();
-  // final _confirmPasswordController = TextEditingController();
+  // Add TextEditingControllers for user data
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _fieldPositionController = TextEditingController();
+  final _genderController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  
+  // For storing user ID after successful registration
+  String? _registeredUserId;
 
   @override
   void dispose() {
-    // TODO: Dispose controllers
-    // _emailController.dispose();
-    // _usernameController.dispose();
-    // _passwordController.dispose();
-    // _confirmPasswordController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _fieldPositionController.dispose();
+    _genderController.dispose();
+    _ageController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // Validate form fields
+  String? _validateForm() {
+    if (_emailController.text.isEmpty) {
+      return 'Email is required';
+    }
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text)) {
+      return 'Enter a valid email address';
+    }
+    if (_phoneController.text.isEmpty) {
+      return 'Phone number is required';
+    }
+    if (_passwordController.text.isEmpty) {
+      return 'Password is required';
+    }
+    if (_passwordController.text.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    if (_passwordController.text != _confirmPasswordController.text) {
+      return 'Passwords do not match';
+    }
+    if (!_isTermsAccepted) {
+      return 'You must accept the Terms and Conditions';
+    }
+    return null;
+  }
+
+  // Register user
+  Future<void> _registerUser() async {
+    // Validate form
+    final validationError = _validateForm();
+    if (validationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(validationError))
+      );
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      print("Attempting to register user with email: ${_emailController.text} and phone: ${_phoneController.text}");
+      
+      final result = await UserService.registerUser(
+        email: _emailController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        password: _passwordController.text,
+        fieldPosition: _fieldPositionController.text.trim(),
+        gender: _genderController.text.trim(),
+        age: _ageController.text.trim(),
+      );
+      
+      print("Registration result: $result");
+      
+      if (result['success'] == true) {
+        // Store user ID for verification step
+        _registeredUserId = result['userId'];
+        
+        // Navigate to verification screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerificationScreen(
+              contact: _phoneController.text.trim(),
+              isForgotPassword: false,
+              userId: _registeredUserId,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Registration failed'))
+        );
+      }
+    } catch (e) {
+      print("Registration exception: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration failed: $e'))
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -76,7 +175,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // --- Email Field ---
                 CustomTextField(
-                  // controller: _emailController,
+                  controller: _emailController,
                   hintText: 'Email',
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
@@ -85,7 +184,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // --- Phone Number Field ---
                 CustomTextField(
-                  // controller: _usernameController,
+                  controller: _phoneController,
                   hintText: 'Phone Number',
                   prefixIcon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone, // Use phone keyboard type
@@ -93,21 +192,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 20),
 
                 CustomTextField(
-                  // controller: _usernameController,
+                  controller: _fieldPositionController,
                   hintText: 'Field position',
                   prefixIcon: Icons.location_pin,
                   keyboardType: TextInputType.text,
                 ),
                 const SizedBox(height: 20),
                 CustomTextField(
-                  // controller: _usernameController,
+                  controller: _genderController,
                   hintText: 'Gender',
                   prefixIcon: Icons.person_outline,
                   keyboardType: TextInputType.text,
                 ),
                 const SizedBox(height: 20),
                 CustomTextField(
-                  // controller: _usernameController,
+                  controller: _ageController,
                   hintText: 'Age',
                   prefixIcon: Icons.numbers_outlined,
                   keyboardType: TextInputType.number,
@@ -116,7 +215,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // --- Password Field ---
                 CustomTextField(
-                  // controller: _passwordController,
+                  controller: _passwordController,
                   hintText: 'Password',
                   prefixIcon: Icons.lock_outline,
                   obscureText: !_isPasswordVisible,
@@ -139,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // --- Confirm Password Field ---
                 CustomTextField(
-                  // controller: _confirmPasswordController,
+                  controller: _confirmPasswordController,
                   hintText: 'Confirm password',
                   prefixIcon: Icons.lock_outline,
                   obscureText: !_isConfirmPasswordVisible,
@@ -194,24 +293,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: _isTermsAccepted 
-                        ? () {
-                          // TODO: Implement Sign Up Logic (validation, API call, etc.)
-                          
-                          // Navigate to verification screen instead of Homepage
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => VerificationScreen(
-                                contact: 'your mobile number', // Ideally this should be dynamically populated
-                                isForgotPassword: false, // This is for signup flow
-                              ),
-                            ),
-                          );
-                        }
-                        : null, // Disable button if terms not accepted
-                    // Use theme styling instead of custom style
-                    child: const Text('Sign up'),
+                    onPressed: _isLoading || !_isTermsAccepted 
+                        ? null 
+                        : _registerUser,
+                    child: _isLoading 
+                        ? const SizedBox(
+                            width: 20, 
+                            height: 20, 
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            )
+                          )
+                        : const Text('Sign up'),
                   ),
                 ),
                 const SizedBox(height: 30),

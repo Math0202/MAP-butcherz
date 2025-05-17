@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/On%20Boarding/Onboarding.dart';
+import 'package:hocky_na_org/services/mongodb_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize MongoDB connection
+  await MongoDBService.initialize();
+  
   runApp(const MyApp());
 }
 
@@ -13,7 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'OnHockey App',
+      title: 'Hocky.na',
 
       // --- Light Theme Definition ---
       theme: ThemeData(

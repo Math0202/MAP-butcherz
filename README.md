@@ -6,11 +6,27 @@ A new Flutter project.
 
 This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
+Technology stack
+- Mongo DB
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Libraries used
+- mongo_dart
+- smooth_page_indicator
+- http
+- crypto
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+
+Project Set-up and Running
+- Flutter pub get
+- Flutter run
+
+Features
+- Light mode
+- Dark mode
+
+Security 
+- Environmental Variables
+- Authentication
+- Input Validation
+- SMS code validation
+- hashing of password(SHA-256)

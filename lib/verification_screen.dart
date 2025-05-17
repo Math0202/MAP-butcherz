@@ -3,15 +3,19 @@ import 'package:flutter/services.dart';
 import 'package:hocky_na_org/home_page.dart'; // For navigation after verification
 import 'dart:math'; // For random number generation
 import 'package:http/http.dart' as http; // For API request
+import 'package:hocky_na_org/services/mongodb_service.dart';
+import 'package:hocky_na_org/services/user_service.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String? contact; // Email or phone where code was sent
   final bool isForgotPassword; // Determines if this is for forgot password flow or signup
+  final String? userId; // Added userId parameter for user verification
 
   const VerificationScreen({
     super.key, 
     this.contact,
     this.isForgotPassword = false,
+    this.userId,
   });
 
   @override
@@ -48,26 +52,60 @@ class _VerificationScreenState extends State<VerificationScreen> {
     // Format phone number (extract from contact if available or use demo number)
     final phoneNumber = widget.contact?.replaceAll(RegExp(r'[^0-9]'), '') ?? '0818031157';
     
-    // Build API URL with generated code
-    final apiUrl = 'https://connectsms.mtc.com.na/api.asmx/SendSMS?from_number=xxxxxxxxxx&username=xxxxxxxxxxxx&password=xxxxxxxxxxxx&destination=xxxxxxxxxx&message=$_generatedCode';
+    print("Generating verification code: $_generatedCode for contact: $phoneNumber");
+    
+    // URL encode the message
+    final message = Uri.encodeComponent("Your verification code is: $_generatedCode");
+    
+    // Build API URL with generated code - using the correct format for MTC
+    final apiUrl = 'https://connectsms.mtc.com.na/api.asmx/SendSMS'
+        '?from_number=0814800039'
+        '&username=Ausgezeichnet'
+        '&password=User@0046'
+        '&destination=$phoneNumber'
+        '&message=$message';
     
     try {
-      // Call the API
+      // Call the API with a GET request (not POST as previously attempted)
+      print("Sending SMS request to: ${apiUrl.replaceAll(RegExp(r'password=[^&]*'), 'password=XXXXX')}");
       final response = await http.get(Uri.parse(apiUrl));
       
       if (response.statusCode == 200) {
-        print('SMS sent successfully with code: $_generatedCode');
+        final responseBody = response.body;
+        print('SMS API response: $responseBody');
         
-        // For testing purposes, pre-fill the code fields (remove this in production)
-        if (mounted) {
-          setState(() {
-            for (int i = 0; i < 5; i++) {
-              if (i < _generatedCode.length) {
-                // Uncomment for auto-filling in development
-                // _controllers[i].text = _generatedCode[i];
+        // Check if the SMS was sent successfully (look for success indicators)
+        if (responseBody.contains("<Status>0</Status>") || responseBody.contains("success")) {
+          print('SMS sent successfully with code: $_generatedCode');
+          
+          // Store verification code in MongoDB
+          await MongoDBService.storeVerificationCode(
+            contact: phoneNumber,
+            code: _generatedCode,
+            expiresAt: DateTime.now().add(Duration(seconds: _secondsRemaining)),
+          );
+          
+          // For testing/development only (remove in production):
+          if (mounted) {
+            setState(() {
+              for (int i = 0; i < 5; i++) {
+                if (i < _generatedCode.length) {
+                  _controllers[i].text = _generatedCode[i]; // Auto-fill for testing
+                }
               }
+            });
+          }
+        } else {
+          // Extract error message if possible
+          String errorMessage = "Unknown error";
+          if (responseBody.contains("<ErrorMessage>")) {
+            final startIndex = responseBody.indexOf("<ErrorMessage>") + "<ErrorMessage>".length;
+            final endIndex = responseBody.indexOf("</ErrorMessage>");
+            if (startIndex != -1 && endIndex != -1) {
+              errorMessage = responseBody.substring(startIndex, endIndex);
             }
-          });
+          }
+          print('Failed to send SMS. Error: $errorMessage');
         }
       } else {
         print('Failed to send SMS. Status code: ${response.statusCode}');
@@ -122,9 +160,31 @@ class _VerificationScreenState extends State<VerificationScreen> {
     return _controllers.map((controller) => controller.text).join();
   }
 
-  // Verify the entered code against the generated code
-  bool _verifyCode() {
-    return _fullCode == _generatedCode;
+  // Verify the entered code against the stored code in MongoDB
+  Future<bool> _verifyCode() async {
+    try {
+      final phoneNumber = widget.contact?.replaceAll(RegExp(r'[^0-9]'), '') ?? '0818031157';
+      print("Verifying code for contact: $phoneNumber, code: $_fullCode, userId: ${widget.userId}");
+      
+      final isCodeValid = await MongoDBService.verifyCode(
+        contact: phoneNumber,
+        code: _fullCode,
+      );
+      
+      print("Code validation result: $isCodeValid");
+      
+      // If code is valid and we have a userId (from registration), verify the user account
+      if (isCodeValid && widget.userId != null && !widget.isForgotPassword) {
+        print("Verifying user account with ID: ${widget.userId}");
+        final userVerified = await UserService.verifyUserAccount(widget.userId!);
+        print("User verification result: $userVerified");
+      }
+      
+      return isCodeValid;
+    } catch (e) {
+      print("Error during verification: $e");
+      return false;
+    }
   }
 
   @override
@@ -195,8 +255,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _isCodeComplete 
-                        ? () {
-                            if (_verifyCode()) {
+                        ? () async {
+                            if (await _verifyCode()) {
                               // Code matches, proceed to next screen
                               Navigator.pushReplacement(
                                 context,
