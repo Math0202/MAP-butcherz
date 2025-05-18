@@ -3,6 +3,8 @@ import 'package:hocky_na_org/manage_roster_screen.dart'; // Import the ManageRos
 import 'package:hocky_na_org/enter_events_screen.dart'; // Import the new screen
 import 'package:hocky_na_org/notifications_screen.dart'; // Import the NotificationsScreen
 import 'package:hocky_na_org/notifications_screen.dart' show NotificationItem;
+import 'package:hocky_na_org/services/user_service.dart';
+import 'package:hocky_na_org/login_screen.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -113,6 +115,38 @@ class _HomepageState extends State<Homepage> {
               );
               // Refresh count when returning from NotificationsScreen
               _fetchUnreadNotificationsCount();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              // Show confirmation dialog
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Log Out'),
+                  content: const Text('Are you sure you want to log out?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Log Out'),
+                    ),
+                  ],
+                ),
+              );
+              
+              if (shouldLogout == true) {
+                // Navigate to login screen
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false, // Clear all routes
+                );
+              }
             },
           ),
         ],

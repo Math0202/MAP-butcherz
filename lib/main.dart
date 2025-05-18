@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/On%20Boarding/Onboarding.dart';
 import 'package:hocky_na_org/services/mongodb_service.dart';
+import 'package:hocky_na_org/services/user_service.dart';
+import 'package:hocky_na_org/team_query_screen.dart';
+import 'package:hocky_na_org/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize MongoDB connection
-  await MongoDBService.initialize();
-  
-  runApp(const MyApp());
+  await MongoDBService.initialize();  
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+  
+  const MyApp({super.key, this.isLoggedIn = false});
 
   // This widget is the root of your application.
   @override
@@ -168,7 +172,7 @@ class MyApp extends StatelessWidget {
       // --- Theme Mode ---
       themeMode: ThemeMode.system,
 
-      home: const Onboarding(),
+      home: isLoggedIn ? const Homepage() : const Onboarding(),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 import 'package:hocky_na_org/services/mongodb_service.dart';
 import 'package:hocky_na_org/config/mongodb_config.dart';
+import 'package:hocky_na_org/services/user_state.dart';
 
 class UserService {
   // Hash password using SHA-256
@@ -17,6 +18,7 @@ class UserService {
     required String email,
     required String phoneNumber,
     required String password,
+    String? fullName,
     String? fieldPosition,
     String? gender,
     String? age,
@@ -48,6 +50,7 @@ class UserService {
         'email': email,
         'phoneNumber': phoneNumber,
         'password': hashedPassword,
+        'fullName': fullName,
         'fieldPosition': fieldPosition,
         'gender': gender,
         'age': age,
@@ -140,5 +143,88 @@ class UserService {
       print("Error verifying user account: $e");
       return false;
     }
+  }
+  
+  // Login user
+  static Future<Map<String, dynamic>> loginUser({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      print("Attempting to login user with email: $email");
+      
+      // Get user by email
+      final collection = MongoDBService.getCollection(MongoDBConfig.usersCollection);
+      final user = await collection.findOne(where.eq('email', email));
+      
+      // Check if user exists
+      if (user == null) {
+        print("Login failed: User not found with email $email");
+        return {
+          'success': false,
+          'message': 'Invalid email or password'
+        };
+      }
+      
+      // Hash the provided password and compare with stored hash
+      final hashedPassword = hashPassword(password);
+      if (user['password'] != hashedPassword) {
+        print("Login failed: Password incorrect for user $email");
+        return {
+          'success': false,
+          'message': 'Invalid email or password'
+        };
+      }
+      
+      // Get user's full name or use email as fallback
+      final String fullName = user['fullName'] ?? email.split('@')[0];
+      final phoneNumber = user['phoneNumber'] as String?;
+      
+      // Always send login notification SMS, regardless of verification status
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        try {
+          print("Sending login security SMS to $phoneNumber");
+          await MongoDBService.sendLoginNotificationSMS(phoneNumber, fullName);
+          print("Login security SMS successfully queued");
+        } catch (smsError) {
+          print("Failed to send login notification SMS: $smsError");
+          // Continue with login even if SMS fails
+        }
+      } else {
+        print("No phone number available to send login security SMS");
+      }
+      
+      // Check if user is verified AFTER sending the security SMS
+      if (user['verified'] != true) {
+        print("Login warning: Unverified user $email");
+        return {
+          'success': false,
+          'message': 'Please verify your account first',
+          'unverified': true,
+          'email': email,
+          'phoneNumber': phoneNumber
+        };
+      }
+      
+      // Successful login
+      print("Login successful for user $email");
+      return {
+        'success': true,
+        'message': 'Login successful',
+        'email': email,
+        'user': user
+      };
+    } catch (e) {
+      print("Login error: $e");
+      return {
+        'success': false,
+        'message': 'An error occurred during login'
+      };
+    }
+  }
+  
+  // Log out user
+  static void logoutUser() {
+    UserState.clearCurrentUserEmail();
   }
 } 

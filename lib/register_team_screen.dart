@@ -1,50 +1,137 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/elements/custom_text_field.dart';
 import 'package:hocky_na_org/home_page.dart'; // For navigation after registration
+import 'package:hocky_na_org/services/team_service.dart';
+import 'package:hocky_na_org/services/user_state.dart';
+import 'package:image_picker/image_picker.dart';
 
 class RegisterTeamScreen extends StatefulWidget {
-  const RegisterTeamScreen({super.key});
+  final String email;
+
+  const RegisterTeamScreen({super.key, required this.email});
 
   @override
   State<RegisterTeamScreen> createState() => _RegisterTeamScreenState();
 }
 
 class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
-  // TODO: Add TextEditingControllers for team name, coach name, coach contact
-  // final _teamNameController = TextEditingController();
-  // final _coachNameController = TextEditingController();
-  // final _coachContactController = TextEditingController();
+  // Form controllers
+  final _teamNameController = TextEditingController();
+  final _coachNameController = TextEditingController();
+  final _coachContactController = TextEditingController();
 
-  // Placeholder for selected logo
-  String? _selectedLogoPath; // In a real app, this might be a File object
+  // State variables
+  File? _logoFile;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    // TODO: Dispose controllers
-    // _teamNameController.dispose();
-    // _coachNameController.dispose();
-    // _coachContactController.dispose();
+    _teamNameController.dispose();
+    _coachNameController.dispose();
+    _coachContactController.dispose();
     super.dispose();
   }
 
-  void _pickLogo() {
-    // TODO: Implement image picker logic
-    // For now, simulate picking a logo
-    setState(() {
-      _selectedLogoPath = 'assets/logo_placeholder.png'; // A placeholder image
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logo picker not implemented yet.')),
-    );
+  // Image picker for team logo
+  Future<void> _pickLogo() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image != null) {
+        setState(() {
+          _logoFile = File(image.path);
+        });
+      }
+    } catch (e) {
+      print('Error picking logo: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not select image: ${e.toString()}')),
+      );
+    }
   }
 
-  void _registerTeam() {
-    // TODO: Implement team registration logic (validate, API call)
-    // For now, navigate to homepage
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const Homepage()),
-    );
+  // Validate form fields
+  String? _validateForm() {
+    if (_teamNameController.text.isEmpty) {
+      return 'Team name is required';
+    }
+    if (_coachNameController.text.isEmpty) {
+      return 'Coach name is required';
+    }
+    if (_coachContactController.text.isEmpty) {
+      return 'Coach contact information is required';
+    }
+    return null;
+  }
+
+  // Register team
+  Future<void> _registerTeam() async {
+    // Validate form
+    final validationError = _validateForm();
+    if (validationError != null) {
+      setState(() {
+        _errorMessage = validationError;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validationError)));
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await TeamService.registerTeam(
+        name: _teamNameController.text.trim(),
+        coachName: _coachNameController.text.trim(),
+        coachContact: _coachContactController.text.trim(),
+        ownerEmail: widget.email,
+        logoFile: _logoFile,
+      );
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Team registered successfully'),
+          ),
+        );
+
+        // Navigate to homepage after success
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Homepage()),
+        );
+      } else {
+        setState(() {
+          _errorMessage = result['message'] ?? 'Failed to register team';
+        });
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_errorMessage!)));
+      }
+    } catch (e) {
+      print("Error during team registration: $e");
+      setState(() {
+        _errorMessage = 'An error occurred: ${e.toString()}';
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_errorMessage!)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -52,10 +139,7 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Register New Team'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Register New Team'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -71,9 +155,27 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
               ),
               const SizedBox(height: 30),
 
+              // Error message if present
+              if (_errorMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               // --- Team Name Field ---
               CustomTextField(
-                // controller: _teamNameController,
+                controller: _teamNameController,
                 hintText: 'Team Name',
                 prefixIcon: Icons.shield_outlined,
               ),
@@ -84,7 +186,7 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
                 'Team Logo',
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: theme.colorScheme.onBackground.withOpacity(0.7),
-                  fontWeight: FontWeight.bold
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
@@ -101,34 +203,40 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
                     ),
                   ),
                   child: Center(
-                    child: _selectedLogoPath == null
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.cloud_upload_outlined,
-                                size: 50,
-                                color: theme.colorScheme.primary,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Tap to upload logo',
-                                style: theme.textTheme.bodyMedium?.copyWith(
+                    child:
+                        _logoFile == null
+                            ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.cloud_upload_outlined,
+                                  size: 50,
                                   color: theme.colorScheme.primary,
                                 ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Tap to upload logo',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            )
+                            : ClipRRect(
+                              borderRadius: BorderRadius.circular(10.5),
+                              child: Image.file(
+                                _logoFile!,
+                                fit: BoxFit.cover,
+                                height: 140,
+                                width: double.infinity,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.broken_image,
+                                    size: 50,
+                                  );
+                                },
                               ),
-                            ],
-                          )
-                        : ClipRRect( // To ensure the image respects border radius
-                            borderRadius: BorderRadius.circular(10.5), // slightly less than container
-                            child: Image.asset( // In a real app, use Image.file or Image.network
-                              _selectedLogoPath!,
-                              fit: BoxFit.contain, // or BoxFit.cover depending on needs
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.broken_image, size: 50);
-                              },
                             ),
-                          ),
                   ),
                 ),
               ),
@@ -143,13 +251,13 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
               ),
               const SizedBox(height: 12),
               CustomTextField(
-                // controller: _coachNameController,
+                controller: _coachNameController,
                 hintText: 'Coach Full Name',
                 prefixIcon: Icons.person_outline,
               ),
               const SizedBox(height: 20),
               CustomTextField(
-                // controller: _coachContactController,
+                controller: _coachContactController,
                 hintText: 'Coach Contact (Email or Phone)',
                 prefixIcon: Icons.contact_mail_outlined,
                 keyboardType: TextInputType.emailAddress,
@@ -158,8 +266,20 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
 
               // --- Register Button ---
               FilledButton(
-                onPressed: _registerTeam,
-                child: const Text('Register Team'),
+                onPressed: _isLoading ? null : _registerTeam,
+                child:
+                    _isLoading
+                        ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.0,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              theme.colorScheme.onPrimary,
+                            ),
+                          ),
+                        )
+                        : const Text('Register Team'),
               ),
             ],
           ),
@@ -167,4 +287,4 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
       ),
     );
   }
-} 
+}

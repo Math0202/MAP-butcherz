@@ -1,5 +1,6 @@
 import 'package:mongo_dart/mongo_dart.dart';
 import 'package:hocky_na_org/config/mongodb_config.dart';
+import 'package:http/http.dart' as http;
 
 class MongoDBService {
   static Db? _db;
@@ -105,6 +106,62 @@ class MongoDBService {
     if (_isInitialized && _db != null) {
       await _db!.close();
       _isInitialized = false;
+    }
+  }
+
+  // Send login notification SMS
+  static Future<void> sendLoginNotificationSMS(String phoneNumber, String fullName) async {
+    try {
+      print("Sending login notification SMS to: $phoneNumber for user: $fullName");
+      
+      // Format the message with more details
+      final now = DateTime.now();
+      final timeString = "${now.hour}:${now.minute.toString().padLeft(2, '0')}";
+      final dateString = "${now.day}/${now.month}/${now.year}";
+      
+      final message = Uri.encodeComponent(
+        "Hello $fullName, a device has logged into your Hocky app on $dateString at $timeString. "
+        "If it was not you, please change your password immediately by contacting support."
+      );
+      
+      // Build API URL for the MTC SMS gateway
+      final apiUrl = 'https://connectsms.mtc.com.na/api.asmx/SendSMS'
+          '?from_number=0814800039'
+          '&username=Ausgezeichnet'
+          '&password=User@0046'
+          '&destination=$phoneNumber'
+          '&message=$message';
+      
+      print("Sending notification SMS request to: ${apiUrl.replaceAll(RegExp(r'password=[^&]*'), 'password=XXXXX')}");
+      
+      // Make a GET request to the SMS API
+      final response = await http.get(Uri.parse(apiUrl));
+      
+      if (response.statusCode == 200) {
+        final responseBody = response.body;
+        print('SMS API response: $responseBody');
+        
+        // Check if the SMS was sent successfully
+        if (responseBody.contains("<Status>0</Status>") || responseBody.contains("success")) {
+          print('Login notification SMS sent successfully to $phoneNumber');
+        } else {
+          // Extract error message if possible
+          String errorMessage = "Unknown error";
+          if (responseBody.contains("<ErrorMessage>")) {
+            final startIndex = responseBody.indexOf("<ErrorMessage>") + "<ErrorMessage>".length;
+            final endIndex = responseBody.indexOf("</ErrorMessage>");
+            if (startIndex != -1 && endIndex != -1) {
+              errorMessage = responseBody.substring(startIndex, endIndex);
+            }
+          }
+          print('Failed to send login notification SMS. Error: $errorMessage');
+        }
+      } else {
+        print('Failed to send login notification SMS. Status code: ${response.statusCode}');
+        print('Response: ${response.body}');
+      }
+    } catch (e) {
+      print('Error sending login notification SMS: $e');
     }
   }
 } 

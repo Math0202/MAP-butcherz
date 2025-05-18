@@ -14,6 +14,8 @@ Libraries used
 - smooth_page_indicator
 - http
 - crypto
+- shared_preferences (to store user login state)
+- image_picker (to pick image from gallery)
 
 
 Project Set-up and Running

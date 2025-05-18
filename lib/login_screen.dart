@@ -4,8 +4,8 @@ import 'package:hocky_na_org/elements/custom_text_field.dart'; // Import custom 
 import 'package:hocky_na_org/elements/social_login_button.dart';
 import 'package:hocky_na_org/register_screen.dart'; // Import the Register Screen
 import 'package:hocky_na_org/verification_screen.dart'; // Import the Verification Screen
-
-import 'team_query_screen.dart'; // Import social button
+import 'package:hocky_na_org/services/user_service.dart';
+import 'package:hocky_na_org/team_query_screen.dart'; // Import social button
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,17 +17,91 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _keepMeSignedIn = false;
+  bool _isLoading = false;
 
-  // TODO: Add TextEditingControllers for username and password
-  // final _usernameController = TextEditingController();
-  // final _passwordController = TextEditingController();
+  // Add TextEditingControllers for email and password
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    // TODO: Dispose controllers
-    // _usernameController.dispose();
-    // _passwordController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
+  }
+
+  // Login method
+  Future<void> _login() async {
+    // Basic validation
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both email and password')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Show a notification that a security SMS will be sent
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'For your security, a notification will be sent to your registered phone number',
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final result = await UserService.loginUser(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (result['success'] == true) {
+        // Navigate to appropriate screen after successful login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Homepage()),
+        );
+      } else if (result['unverified'] == true) {
+        // User exists but is not verified, send to verification
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your account is not verified, your clan will be notified',
+            ),
+          ),
+        );
+
+        // Navigate to verification screen with the user's ID
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) =>
+                    TeamQueryScreen(email: _emailController.text.trim()),
+          ),
+        );
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Login failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Login error: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -43,9 +117,13 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       // backgroundColor is handled by theme's scaffoldBackgroundColor
       body: SafeArea(
-        child: SingleChildScrollView( // Allows scrolling when keyboard appears
+        child: SingleChildScrollView(
+          // Allows scrolling when keyboard appears
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 40.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -65,14 +143,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // --- Username Field ---
+                // --- Email Field ---
                 CustomTextField(
                   hintText: 'Email',
                   prefixIcon: Icons.person_outline,
-                  keyboardType: TextInputType.text,
-                  // Let CustomTextField use InputDecorationTheme defaults
-                  // textFieldColor: textFieldColor, // REMOVE
-                  // hintColor: hintColor, // REMOVE
+                  keyboardType: TextInputType.emailAddress,
+                  controller: _emailController,
                 ),
                 const SizedBox(height: 20),
 
@@ -82,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: Icons.lock_outline,
                   obscureText: !_isPasswordVisible,
                   keyboardType: TextInputType.visiblePassword,
+                  controller: _passwordController,
                   suffixIcon: IconButton(
                     // Use theme's hint color for the icon
                     icon: Icon(
@@ -96,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                   ),
-                   // Let CustomTextField use InputDecorationTheme defaults
+                  // Let CustomTextField use InputDecorationTheme defaults
                   // textFieldColor: textFieldColor, // REMOVE
                   // hintColor: hintColor, // REMOVE
                 ),
@@ -138,15 +215,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const VerificationScreen(
-                              isForgotPassword: true,
-                            ),
+                            builder:
+                                (context) => const VerificationScreen(
+                                  isForgotPassword: true,
+                                ),
                           ),
                         );
                       },
                       child: Text(
                         'Forgot password?',
-                         // Use theme's bodyMedium style
+                        // Use theme's bodyMedium style
                         style: theme.textTheme.bodyMedium,
                       ),
                     ),
@@ -159,15 +237,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   // FilledButtonTheme in main.dart handles styling
                   child: FilledButton(
-                    onPressed: () {
-                      // TODO: Implement Login Logic
-                       Navigator.pushReplacement(
-                         context,
-                         MaterialPageRoute(builder: (context) => const TeamQueryScreen()),
-                       );
-                    },
-                    // style: FilledButton.styleFrom( ... ), // REMOVE (unless specific override needed)
-                    child: const Text('Log in'),
+                    onPressed: _isLoading ? null : _login,
+                    child:
+                        _isLoading
+                            ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                            : const Text('Log in'),
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -178,15 +259,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       "Don't have an account? ",
-                       // Use theme's bodyMedium style
+                      // Use theme's bodyMedium style
                       style: theme.textTheme.bodyMedium,
                     ),
                     TextButton(
                       onPressed: () {
                         // Navigate to Register Screen
-                        Navigator.push( // Use push to allow going back
+                        Navigator.push(
+                          // Use push to allow going back
                           context,
-                          MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterScreen(),
+                          ),
                         );
                       },
                       style: TextButton.styleFrom(
@@ -212,16 +296,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   children: [
                     // Use theme's divider color
-                    Expanded(child: Divider(color: theme.dividerColor, thickness: 0.8)),
+                    Expanded(
+                      child: Divider(color: theme.dividerColor, thickness: 0.8),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: Text(
                         'or continue with',
                         // Use theme's bodySmall style and hint color
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.hintColor,
+                        ),
                       ),
                     ),
-                    Expanded(child: Divider(color: theme.dividerColor, thickness: 0.8)),
+                    Expanded(
+                      child: Divider(color: theme.dividerColor, thickness: 0.8),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 30),
@@ -251,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           // TODO: Implement Apple Sign-In
                         },
-                         // Let SocialLoginButton use theme defaults or define its own theme-aware style
+                        // Let SocialLoginButton use theme defaults or define its own theme-aware style
                         // buttonColor: textFieldColor, // REMOVE
                         // textColor: textColor, // REMOVE
                       ),
@@ -265,4 +355,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-} 
+}

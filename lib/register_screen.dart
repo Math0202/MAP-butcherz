@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
 
   // Add TextEditingControllers for user data
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _fieldPositionController = TextEditingController();
@@ -34,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _fullNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _fieldPositionController.dispose();
@@ -47,11 +49,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // Validate form fields
   String? _validateForm() {
+    if (_fullNameController.text.isEmpty) {
+      return 'Full name is required';
+    }
     if (_emailController.text.isEmpty) {
       return 'Email is required';
     }
     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text)) {
-      return 'Enter a valid email address';
+      return 'Please enter a valid email address';
     }
     if (_phoneController.text.isEmpty) {
       return 'Phone number is required';
@@ -66,7 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return 'Passwords do not match';
     }
     if (!_isTermsAccepted) {
-      return 'You must accept the Terms and Conditions';
+      return 'You must accept the terms and conditions';
     }
     return null;
   }
@@ -90,6 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       print("Attempting to register user with email: ${_emailController.text} and phone: ${_phoneController.text}");
       
       final result = await UserService.registerUser(
+        fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
         password: _passwordController.text,
@@ -103,6 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (result['success'] == true) {
         // Store user ID for verification step
         _registeredUserId = result['userId'];
+        print("User registered with ID: $_registeredUserId");
         
         // Navigate to verification screen
         Navigator.push(
@@ -137,10 +144,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // No need to define specific colors anymore - use theme system
     
     return Scaffold(
-      // Add AppBar with back navigation
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -151,80 +156,89 @@ class _RegisterScreenState extends State<RegisterScreen> {
         elevation: 0, // Remove shadow for a cleaner look
         backgroundColor: Colors.transparent, // Use transparent to match the background
       ),
-      // Use theme's background color
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0), // Reduced top padding since we have an AppBar now
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Optional: Remove or adjust the header since we now have a title in the AppBar
-                // Text(
-                //   'Create an account',
-                //   style: theme.textTheme.headlineLarge,
-                // ),
-                // const SizedBox(height: 8),
                 Text(
-                  'Please fill the credentials',
+                  'Welcome to Hocky.na',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create an account to get started',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.hintColor,
                   ),
                 ),
-                const SizedBox(height: 30), // Reduced spacing
-
-                // --- Email Field ---
+                const SizedBox(height: 32),
+                
+                // Full Name Field
+                CustomTextField(
+                  controller: _fullNameController,
+                  hintText: 'Full Name',
+                  prefixIcon: Icons.person_outline,
+                ),
+                const SizedBox(height: 16),
+                
+                // Email Field
                 CustomTextField(
                   controller: _emailController,
                   hintText: 'Email',
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                 ),
-                const SizedBox(height: 20),
-
-                // --- Phone Number Field ---
+                const SizedBox(height: 16),
+                
+                // Phone Field
                 CustomTextField(
                   controller: _phoneController,
                   hintText: 'Phone Number',
                   prefixIcon: Icons.phone_outlined,
-                  keyboardType: TextInputType.phone, // Use phone keyboard type
+                  keyboardType: TextInputType.phone,
                 ),
-                const SizedBox(height: 20),
-
+                const SizedBox(height: 16),
+                
+                // Field Position
                 CustomTextField(
                   controller: _fieldPositionController,
-                  hintText: 'Field position',
-                  prefixIcon: Icons.location_pin,
-                  keyboardType: TextInputType.text,
+                  hintText: 'Field Position (Optional)',
+                  prefixIcon: Icons.sports_hockey_outlined,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                
+                // Gender Field
                 CustomTextField(
                   controller: _genderController,
-                  hintText: 'Gender',
-                  prefixIcon: Icons.person_outline,
-                  keyboardType: TextInputType.text,
+                  hintText: 'Gender (Optional)',
+                  prefixIcon: Icons.people_outline,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                
+                // Age Field
                 CustomTextField(
                   controller: _ageController,
-                  hintText: 'Age',
-                  prefixIcon: Icons.numbers_outlined,
+                  hintText: 'Age (Optional)',
+                  prefixIcon: Icons.calendar_today_outlined,
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 20),
-
-                // --- Password Field ---
+                const SizedBox(height: 16),
+                
+                // Password Field
                 CustomTextField(
                   controller: _passwordController,
                   hintText: 'Password',
                   prefixIcon: Icons.lock_outline,
                   obscureText: !_isPasswordVisible,
-                  keyboardType: TextInputType.visiblePassword,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                      _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
                       color: theme.hintColor,
                     ),
                     onPressed: () {
@@ -234,20 +248,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                // --- Confirm Password Field ---
+                const SizedBox(height: 16),
+                
+                // Confirm Password Field
                 CustomTextField(
                   controller: _confirmPasswordController,
-                  hintText: 'Confirm password',
+                  hintText: 'Confirm Password',
                   prefixIcon: Icons.lock_outline,
                   obscureText: !_isConfirmPasswordVisible,
-                  keyboardType: TextInputType.visiblePassword,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _isConfirmPasswordVisible
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                      _isConfirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
                       color: theme.hintColor,
                     ),
                     onPressed: () {
@@ -257,14 +268,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 
-                // --- Terms and Conditions Checkbox ---
+                // Terms and Conditions Checkbox
                 Row(
                   children: [
                     Checkbox(
                       value: _isTermsAccepted,
-                      onChanged: (bool? value) {
+                      onChanged: (value) {
                         setState(() {
                           _isTermsAccepted = value ?? false;
                         });
@@ -273,74 +284,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          // Show Terms and Conditions
+                          // Set isTermsAccepted to true when text is tapped
+                          setState(() {
+                            _showTermsSheet = true;
+                          });
                           _showTermsAndConditions(context);
                         },
-                        child: Text(
-                          'I accept the Terms and Conditions',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.primary,
-                            decoration: TextDecoration.underline,
+                        child: RichText(
+                          text: TextSpan(
+                            style: theme.textTheme.bodySmall,
+                            children: [
+                              const TextSpan(text: 'I agree to the '),
+                              TextSpan(
+                                text: 'Terms & Conditions',
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 30),
-
-                // --- Sign Up Button ---
+                const SizedBox(height: 32),
+                
+                // Sign Up Button
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: _isLoading || !_isTermsAccepted 
-                        ? null 
-                        : _registerUser,
-                    child: _isLoading 
-                        ? const SizedBox(
-                            width: 20, 
-                            height: 20, 
+                    onPressed: _isLoading ? null : _registerUser,
+                    child: _isLoading
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            )
+                              strokeWidth: 2.0,
+                              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.onPrimary),
+                            ),
                           )
-                        : const Text('Sign up'),
+                        : const Text('Create Account'),
                   ),
                 ),
-                const SizedBox(height: 30),
-
-                // --- Already have an account? ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Already have an account? ",
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        // Navigate back to Login Screen
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
-                        );
-                      },
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                const SizedBox(height: 24),
+                
+                // Sign In Link
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account? ',
+                        style: theme.textTheme.bodyMedium,
                       ),
-                      child: Text(
-                        'Log in',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
+                      GestureDetector(
+                        onTap: () {
+                          // Navigate back to login screen
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          );
+                        },
+                        child: Text(
+                          'Sign In',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

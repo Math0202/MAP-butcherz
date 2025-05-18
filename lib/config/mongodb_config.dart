@@ -5,4 +5,5 @@ class MongoDBConfig {
   // Collection names - ensure these match the actual collection names in your database
   static const String usersCollection = 'users';
   static const String verificationCodesCollection = 'verification_codes';
+  static const String teamsCollection = 'teams';
 }

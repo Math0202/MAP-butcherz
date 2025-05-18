@@ -7,7 +7,12 @@ import 'login_screen.dart'; // Assuming "YES" goes to login or find club
 import 'register_team_screen.dart'; // Import the new screen
 
 class TeamQueryScreen extends StatelessWidget {
-  const TeamQueryScreen({super.key});
+  final String email;
+  
+  const TeamQueryScreen({
+    super.key,
+    required this.email,
+  });
 
   // Updated helper method for navigation for "YES" button
   void _navigateToLoginOrFindClub(BuildContext context) {
@@ -15,7 +20,7 @@ class TeamQueryScreen extends StatelessWidget {
     // For now, let's assume it goes to the login screen, then they can find their team
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const Homepage()), // Or a dedicated "Find Club" screen
+      MaterialPageRoute(builder: (context) => Homepage()), // Passing email to Homepage
     );
   }
 
@@ -23,7 +28,7 @@ class TeamQueryScreen extends StatelessWidget {
   void _navigateToCreateClub(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const RegisterTeamScreen()),
+      MaterialPageRoute(builder: (context) => RegisterTeamScreen(email: email)), // Passing email to RegisterTeamScreen
     );
   }
 
