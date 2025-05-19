@@ -68,7 +68,7 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
   }
 
   // Register team
-  Future<void> _registerTeam() async {
+  Future<void> _registerTeam(String email) async {
     // Validate form
     final validationError = _validateForm();
     if (validationError != null) {
@@ -105,7 +105,13 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
         // Navigate to homepage after success
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const Homepage()),
+          MaterialPageRoute(
+            builder:
+                (context) => Homepage(
+                  email: email,
+                  teamName: _teamNameController.text.trim(),
+                ),
+          ),
         );
       } else {
         setState(() {
@@ -266,7 +272,8 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
 
               // --- Register Button ---
               FilledButton(
-                onPressed: _isLoading ? null : _registerTeam,
+                onPressed:
+                    _isLoading ? null : () => _registerTeam(widget.email),
                 child:
                     _isLoading
                         ? SizedBox(

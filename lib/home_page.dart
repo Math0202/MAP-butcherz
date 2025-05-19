@@ -7,7 +7,9 @@ import 'package:hocky_na_org/services/user_service.dart';
 import 'package:hocky_na_org/login_screen.dart';
 
 class Homepage extends StatefulWidget {
-  const Homepage({super.key});
+  final String email;
+  final String teamName;
+  const Homepage({super.key, required this.email, required this.teamName});
 
   @override
   State<Homepage> createState() => _HomepageState();
@@ -18,17 +20,20 @@ class _HomepageState extends State<Homepage> {
   int _unreadNotificationsCount = 0; // State variable for the count
 
   // Define the pages to be shown for each tab
-  final List<Widget> _pages = [
-    const _HomeTab(), // Dashboard/Home content
-    const EnterEventsScreen(), // Games/Matches content
-    const ManageRosterScreen(), // Teams content
-    const _ProfileTab(), // Profile content
-  ];
+  late final List<Widget> _pages; // Make this late initialized
 
   @override
   void initState() {
     super.initState();
-    _fetchUnreadNotificationsCount(); // Fetch initial count
+    // Initialize _pages in initState where widget.teamName is accessible
+    _pages = [
+      const _HomeTab(),
+      const EnterEventsScreen(),
+      ManageRosterScreen(teamName: widget.teamName), // Pass widget.teamName
+      _ProfileTab(teamName: widget.teamName), // Pass teamName to ProfileTab
+    ];
+    
+    _fetchUnreadNotificationsCount();
   }
 
   // Simulate fetching unread notifications count
@@ -123,22 +128,23 @@ class _HomepageState extends State<Homepage> {
               // Show confirmation dialog
               final shouldLogout = await showDialog<bool>(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Log Out'),
-                  content: const Text('Are you sure you want to log out?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
+                builder:
+                    (context) => AlertDialog(
+                      title: const Text('Log Out'),
+                      content: const Text('Are you sure you want to log out?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Log Out'),
+                        ),
+                      ],
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Log Out'),
-                    ),
-                  ],
-                ),
               );
-              
+
               if (shouldLogout == true) {
                 // Navigate to login screen
                 Navigator.pushAndRemoveUntil(
@@ -400,8 +406,10 @@ class _TeamsTab extends StatelessWidget {
 }
 
 class _ProfileTab extends StatelessWidget {
-  const _ProfileTab();
-
+  final String teamName;
+  
+  const _ProfileTab({required this.teamName});
+  
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -452,13 +460,13 @@ class _ProfileTab extends StatelessWidget {
             },
           ),
           _ProfileMenuItem(
-            icon: Icons.shield_outlined, // Icon for team management
-            title: 'Manage My Roster', // Text for the new item
+            icon: Icons.shield_outlined,
+            title: 'Manage My Roster',
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ManageRosterScreen(),
+                  builder: (context) => ManageRosterScreen(teamName: teamName),
                 ),
               );
             },

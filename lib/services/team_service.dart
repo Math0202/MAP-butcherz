@@ -127,4 +127,18 @@ class TeamService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getAllTeams() async {
+    try {
+      // Use the static getCollection method, not instance method
+      final teamsCollection = MongoDBService.getCollection(collectionName);
+      final teamsDocs = await teamsCollection.find().toList();
+      
+      // Return the teams as List<Map<String, dynamic>>
+      return teamsDocs.map((doc) => doc as Map<String, dynamic>).toList();
+    } catch (e) {
+      print('Error fetching teams: $e');
+      return [];
+    }
+  }
 }

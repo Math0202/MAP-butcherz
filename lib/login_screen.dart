@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Navigate to appropriate screen after successful login
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const Homepage()),
+          MaterialPageRoute(builder: (context) => TeamQueryScreen(email: _emailController.text.trim())),
         );
       } else if (result['unverified'] == true) {
         // User exists but is not verified, send to verification

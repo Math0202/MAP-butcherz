@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http; // For API request
 import 'package:hocky_na_org/services/mongodb_service.dart';
 import 'package:hocky_na_org/services/user_service.dart';
 
+import 'login_screen.dart';
+
 class VerificationScreen extends StatefulWidget {
   final String? contact; // Email or phone where code was sent
   final bool isForgotPassword; // Determines if this is for forgot password flow or signup
@@ -260,7 +262,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               // Code matches, proceed to next screen
                               Navigator.pushReplacement(
                                 context,
-                                MaterialPageRoute(builder: (context) => const Homepage()),
+                                MaterialPageRoute(builder: (context) => const LoginScreen()),
                               );
                             } else {
                               // Show error for incorrect code

@@ -179,7 +179,7 @@ class _TandCsState extends State<TandCs> {
       context,
       MaterialPageRoute(
         builder:
-            (context) => const TeamQueryScreen(), // Navigate to TeamQueryScreen
+            (context) => const RegisterScreen(), // Navigate to TeamQueryScreen
       ),
     );
   }

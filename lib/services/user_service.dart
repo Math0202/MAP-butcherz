@@ -92,7 +92,7 @@ class UserService {
         'success': false,
         'message': 'An error occurred during registration: ${e.toString()}'
       };
-    }
+      }
   }
   
   // Verify user account after verification code is confirmed
