@@ -4,50 +4,45 @@ import 'package:flutter/material.dart';
 import 'package:hocky_na_org/elements/custom_text_field.dart'; // For add player dialog
 import 'package:hocky_na_org/services/mongodb_service.dart';
 
-// Player Model to match your users collection
+// Player Model to match your MongoDB document structure
 class Player {
   final String id;
-  final String firstName;
-  final String lastName;
-  final String position;
-  final String gender;
-  final String teamName;
-  final String phoneNumber;
+  final String name;
   final String email;
-  final DateTime dateJoined;
-  final bool isActive;
+  final String phone;
+  final String teamName;
+  final String position;
+  final String jerseyNumber;
+  final DateTime joinDate;
+  // Add gender field with default value
+  final String gender;
 
   Player({
     required this.id,
-    required this.firstName,
-    required this.lastName,
-    required this.position,
-    required this.gender,
-    required this.teamName,
-    required this.phoneNumber,
+    required this.name,
     required this.email,
-    required this.dateJoined,
-    required this.isActive,
+    required this.phone,
+    required this.teamName,
+    required this.position,
+    required this.jerseyNumber,
+    required this.joinDate,
+    this.gender = 'Male', // Default to male if not specified
   });
 
-  // Full name getter for convenience
-  String get fullName => '$firstName $lastName';
-
-  // Factory constructor to create a Player from a MongoDB document
+  // Factory constructor to create a Player from your MongoDB document
   factory Player.fromMap(Map<String, dynamic> map) {
     return Player(
-      id: map['_id'].toString(),
-      firstName: map['firstName'] ?? '',
-      lastName: map['lastName'] ?? '',
-      position: map['position'] ?? '',
-      gender: map['gender'] ?? 'Male', // Default to Male if not specified
-      teamName: map['teamName'] ?? '',
-      phoneNumber: map['phoneNumber'] ?? '',
+      id: map['_id']?.toString() ?? '',
+      name: map['name'] ?? '',
       email: map['email'] ?? '',
-      dateJoined: map['dateJoined'] != null 
-          ? DateTime.parse(map['dateJoined'].toString()) 
+      phone: map['phone'] ?? '',
+      teamName: map['teamName'] ?? '',
+      position: map['position'] ?? '',
+      jerseyNumber: map['jerseyNumber']?.toString() ?? '',
+      joinDate: map['joinDate'] != null 
+          ? DateTime.parse(map['joinDate'].toString()) 
           : DateTime.now(),
-      isActive: map['isActive'] ?? true,
+      gender: map['gender'] ?? 'Male', // Default to male if not specified
     );
   }
 }
@@ -99,31 +94,51 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
     });
 
     try {
-      // Get MongoDB collection
+      print('Fetching players for team: ${widget.teamName}');
+      
       final usersCollection = MongoDBService.getCollection('users');
       
-      // Find players with matching teamName
-      final cursor = usersCollection.find({
-        'teamName': widget.teamName,
-        'isActive': true, // Only active players
-      });
+      // Try a more flexible query approach
+      var players = <Player>[];
       
-      // Convert the results to a list of Player objects
-      final playersDocs = await cursor.toList();
-      final players = playersDocs.map((doc) => Player.fromMap(doc as Map<String, dynamic>)).toList();
+      // First try exact match
+      var cursor = usersCollection.find({'teamName': widget.teamName});
+      var playersDocs = await cursor.toList();
+      print('Exact match query found ${playersDocs.length} players');
       
-      setState(() {
-        _players = players;
-        _isLoading = false;
-      });
+      if (playersDocs.isEmpty) {
+        // Try case-insensitive match
+        cursor = usersCollection.find({
+          'teamName': {r'$regex': widget.teamName, r'$options': 'i'}
+        });
+        playersDocs = await cursor.toList();
+        print('Case-insensitive query found ${playersDocs.length} players');
+      }
       
+      // If we found documents, convert them to Player objects
+      if (playersDocs.isNotEmpty) {
+        players = playersDocs.map((doc) {
+          final docMap = doc as Map<String, dynamic>;
+          print('Player document: $docMap');
+          return Player.fromMap(docMap);
+        }).toList();
+      }
+      
+      // Update the UI with what we found
+      if (mounted) {
+        setState(() {
+          _players = players;
+          _isLoading = false;
+        });
+        print('Updated player roster with ${players.length} players');
+      }
     } catch (e) {
       print('Error fetching team players: $e');
-      setState(() {
-        _isLoading = false;
-      });
-      
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading players: $e')),
         );
@@ -141,7 +156,7 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
   void _editPlayer(Player playerToEdit) {
     // TODO: Implement edit player dialog/screen and logic
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit player: ${playerToEdit.fullName} (Not implemented)')),
+      SnackBar(content: Text('Edit player: ${playerToEdit.name} (Not implemented)')),
     );
   }
 
@@ -152,7 +167,7 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
     });
     
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Removed player: ${playerToRemove.fullName}')),
+      SnackBar(content: Text('Removed player: ${playerToRemove.name}')),
     );
   }
 
@@ -252,15 +267,14 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
                     
                     final player = Player(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      firstName: _firstNameController.text,
-                      lastName: _lastNameController.text,
-                      position: _positionController.text,
-                      gender: _selectedGender,
-                      teamName: widget.teamName,
-                      phoneNumber: _phoneController.text,
+                      name: '${_firstNameController.text} ${_lastNameController.text}',
                       email: _emailController.text,
-                      dateJoined: DateTime.now(),
-                      isActive: true,
+                      phone: _phoneController.text,
+                      teamName: widget.teamName,
+                      position: _positionController.text,
+                      jerseyNumber: '',
+                      joinDate: DateTime.now(),
+                      gender: _selectedGender,
                     );
                     
                     _addPlayer(player);
@@ -275,6 +289,34 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
     );
   }
 
+  Future<void> _testMongoDBConnection() async {
+    try {
+      final usersCollection = MongoDBService.getCollection('users');
+      
+      // Count all documents in the collection
+      final count = await usersCollection.count();
+      print('Total documents in users collection: $count');
+      
+      // Check the first document to see its structure
+      final firstDoc = await usersCollection.findOne();
+      print('First document in users collection: $firstDoc');
+      
+      // List all team names in the collection
+      final teamNames = await usersCollection.distinct('teamName');
+      print('Team names in the database: $teamNames');
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Database test successful. Check console logs.')),
+      );
+    } catch (e) {
+      print('Error testing MongoDB connection: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -286,6 +328,14 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.teamName} Roster'),
+        actions: [
+          // Add a test button in the app bar
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: _testMongoDBConnection,
+            tooltip: 'Test DB Connection',
+          ),
+        ],
       ),
       body: _players.isEmpty
           ? Center(
@@ -302,6 +352,13 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
                   Text(
                     'Tap the "+" button to add a player.',
                     style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      _fetchTeamPlayers(); // Refresh the data
+                    },
+                    child: const Text('Refresh Player List'),
                   ),
                 ],
               ),
@@ -326,7 +383,7 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
                       backgroundImage: AssetImage(avatarImage),
                     ),
                     title: Text(
-                      player.fullName, 
+                      player.name, 
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)
                     ),
                     subtitle: Column(
@@ -370,7 +427,7 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
                     onTap: () {
                       // Optional: Show player details
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('View details for ${player.fullName}')),
+                        SnackBar(content: Text('View details for ${player.name}')),
                       );
                     },
                   ),
