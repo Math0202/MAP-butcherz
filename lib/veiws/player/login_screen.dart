@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:hocky_na_org/home_page.dart'; // For navigation after login
 import 'package:hocky_na_org/elements/custom_text_field.dart'; // Import custom text field
 import 'package:hocky_na_org/elements/social_login_button.dart';
-import 'package:hocky_na_org/register_screen.dart'; // Import the Register Screen
-import 'package:hocky_na_org/verification_screen.dart'; // Import the Verification Screen
 import 'package:hocky_na_org/services/user_service.dart';
-import 'package:hocky_na_org/team_query_screen.dart'; // Import social button
+import 'package:hocky_na_org/team_management/team_query_screen.dart'; // Import social button
+import 'package:hocky_na_org/veiws/player/register_screen.dart';
+import 'package:hocky_na_org/veiws/player/verification_screen.dart';
+
+// Add these imports for HTTP requests and JSON encoding
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -50,9 +53,40 @@ class _LoginScreenState extends State<LoginScreen> {
         content: Text(
           'For your security, a notification will be sent to your registered phone number',
         ),
-        duration: Duration(seconds: 2),
+        duration: Duration(seconds: 2), // Keep duration short as login proceeds
       ),
     );
+
+    // --- Send request to webhook ---
+    try {
+      final String email = _emailController.text.trim();
+      final Uri webhookUrl = Uri.parse(
+        'https://math0202.app.n8n.cloud/webhook/email-verification',
+      );
+      final String payload = jsonEncode({'email': email});
+
+      // Make the POST request. We'll print the response but not wait for it
+      // to avoid delaying the login process.
+      http
+          .post(
+            webhookUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: payload,
+          )
+          .then((response) {
+            print('Webhook response status: ${response.statusCode}');
+            print('Webhook response body: ${response.body}');
+            // You could add more handling here if needed, e.g., based on status code
+          })
+          .catchError((error) {
+            print('Error sending request to webhook: $error');
+            // Log this error, but don't necessarily block login
+          });
+    } catch (e) {
+      print('Error preparing/sending webhook request: $e');
+      // This catch is for errors in constructing the request itself (e.g., bad URI)
+    }
+    // --- End of webhook request ---
 
     try {
       final result = await UserService.loginUser(
@@ -64,7 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
         // Navigate to appropriate screen after successful login
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => TeamQueryScreen(email: _emailController.text.trim())),
+          MaterialPageRoute(
+            builder:
+                (context) =>
+                    TeamQueryScreen(email: _emailController.text.trim()),
+          ),
         );
       } else if (result['unverified'] == true) {
         // User exists but is not verified, send to verification

@@ -8,6 +8,9 @@ This project is a starting point for a Flutter application.
 
 Technology stack
 - Mongo DB
+- flutter
+- webhook
+- mtc connect api
 
 Libraries used
 - mongo_dart
@@ -27,7 +30,6 @@ Features
 - Dark mode
 
 Security 
-- Environmental Variables
 - Authentication
 - Input Validation
 - SMS code validation

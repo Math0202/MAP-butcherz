@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 // Remove homepage import
 // import 'package:hocky_na_org/home_page.dart';
 
-import 'home_page.dart'; // Import the Login Screen
-import 'login_screen.dart'; // Assuming "YES" goes to login or find club
-import 'register_team_screen.dart'; // Import the new screen
-import 'services/team_service.dart';  // Import team service
-import 'services/mongodb_service.dart'; // Import MongoDB service if needed
+import '../veiws/coach/coach_home_page.dart'; // Import the Login Screen
+import '../veiws/coach/register_team_screen.dart'; // Import the new screen
+import '../services/team_service.dart';  // Import team service
+import '../services/mongodb_service.dart'; // Import MongoDB service if needed
+import 'package:mongo_dart/mongo_dart.dart' show modify, where; // For MongoDB operations
 
 // Placeholder for your Team model - define this in your models directory
 // class Team {
@@ -81,6 +81,41 @@ class _TeamQueryScreenState extends State<TeamQueryScreen> {
   // Add this to use your TeamService
   final TeamService _teamService = TeamService();
 
+  // Helper method to update user's teamName in MongoDB
+  Future<bool> _updateUserTeamNameInDb(String teamName) async {
+    if (widget.email.isEmpty) {
+      print("User email is empty, cannot update team name in DB.");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User email not found. Could not save team association.')),
+      );
+      return false;
+    }
+    try {
+      final usersCollection = MongoDBService.getCollection('users');
+      final result = await usersCollection.updateOne(
+        where.eq('email', widget.email),
+        modify.set('teamName', teamName),
+      );
+
+      if (result.isSuccess) {
+        print('Successfully updated teamName to "$teamName" for user ${widget.email}');
+        return true;
+      } else {
+        print('Failed to update teamName for user ${widget.email}: ${result.writeError?.errmsg}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save team association: ${result.writeError?.errmsg ?? "Unknown error"}')),
+        );
+        return false;
+      }
+    } catch (e) {
+      print('Error updating teamName in DB: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred while saving team association: $e')),
+      );
+      return false;
+    }
+  }
+
   Future<void> _fetchTeams() async {
     if (!mounted) return;
     setState(() {
@@ -121,28 +156,65 @@ class _TeamQueryScreenState extends State<TeamQueryScreen> {
     _fetchTeams(); // Fetch teams
   }
 
-  void _proceedWithSelectedTeam() {
+  void _proceedWithSelectedTeam() async { // Make async
     if (_selectedTeam != null && mounted) {
       final String teamName = _selectedTeam!['name'] as String;
 
-      Navigator.pushReplacement(
-      context,
-        MaterialPageRoute(
-          builder: (context) => Homepage(
-            email: widget.email,
-            teamName: teamName,
+      // Update teamName in DB first
+      final bool updateSuccess = await _updateUserTeamNameInDb(teamName);
+
+      if (updateSuccess && mounted) {
+        Navigator.pushReplacement(
+        context,
+          MaterialPageRoute(
+            builder: (context) => Homepage(
+              email: widget.email,
+              teamName: teamName,
+            ),
           ),
-        ),
-      );
+        );
+      } else if (mounted) {
+        // Handle update failure, perhaps stay on the screen or show a more prominent error
+        print("Staying on TeamQueryScreen due to DB update failure.");
+      }
     }
   }
 
-  void _navigateToCreateClub() {
+  void _navigateToCreateClub() async { // Make async
     if (!mounted) return;
-    Navigator.push(
+
+    // Navigate to RegisterTeamScreen and wait for a result (the new team name)
+    final newTeamName = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (context) => RegisterTeamScreen(email: widget.email)),
     );
+
+    if (newTeamName != null && newTeamName.isNotEmpty && mounted) {
+      // If a team name was returned (meaning team creation was successful)
+      print('New team created: $newTeamName. Updating user record.');
+
+      // Update user's teamName in DB
+      final bool updateSuccess = await _updateUserTeamNameInDb(newTeamName);
+
+      if (updateSuccess && mounted) {
+        // Navigate to Homepage with the new team name
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Homepage(
+              email: widget.email,
+              teamName: newTeamName,
+            ),
+          ),
+        );
+      } else if (mounted) {
+         // Handle update failure
+        print("Staying on TeamQueryScreen or previous screen due to DB update failure after team creation.");
+      }
+    } else if (mounted) {
+      // User might have backed out of RegisterTeamScreen without creating a team
+      print('No new team name returned from RegisterTeamScreen.');
+    }
   }
 
   @override

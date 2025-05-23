@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/On%20Boarding/TandCs.dart'; // Import T&Cs
-import 'package:hocky_na_org/home_page.dart'; // Import the placeholder Homepage
-import 'package:hocky_na_org/login_screen.dart';
+import 'package:hocky_na_org/veiws/coach/coach_home_page.dart'; // Import the placeholder Homepage
+import 'package:hocky_na_org/veiws/coach/login_screen.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 class Onboarding extends StatefulWidget {

@@ -59,57 +59,72 @@ class TeamService {
     File? logoFile,
   }) async {
     try {
-      // Check if team name already exists
-      final collection = MongoDBService.getCollection(collectionName);
-      final existingTeam = await collection.findOne(where.eq('name', name));
+      final teamsCollection = MongoDBService.getCollection('teams');
       
+      // Check if team name already exists
+      final existingTeam = await teamsCollection.findOne({'name': name});
       if (existingTeam != null) {
         return {
           'success': false,
-          'message': 'A team with this name already exists'
+          'message': 'A team with this name already exists',
         };
       }
 
-      String? logoUrl;
+      // Prepare team data
+      Map<String, dynamic> teamData = {
+        'name': name,
+        'coachName': coachName,
+        'coachPhone': coachContact,
+        'coachEmail': ownerEmail,
+        'createdAt': DateTime.now().toIso8601String(),
+        'isActive': true,
+        'playersCount': 0, // Track number of players
+        'maxPlayers': 25, // Default maximum players per team
+      };
+
+      // Handle logo upload if provided
       if (logoFile != null) {
-        // In a real implementation, you would:
-        // 1. Upload the image to a storage service (Firebase Storage, AWS S3, etc.)
-        // 2. Get back the public URL
-        // For now, we'll just log that we would upload the file
-        print('Would upload logo file: ${logoFile.path}');
-        logoUrl = 'https://placeholder.com/team_logo.png'; // Placeholder URL
+        // You can implement logo upload logic here
+        // For now, we'll just store the file path
+        teamData['logoPath'] = logoFile.path;
       }
+
+      // Insert the team
+      final result = await teamsCollection.insertOne(teamData);
       
-      // Create team document
-      final teamData = Team(
-        name: name,
-        logoUrl: logoUrl,
-        coachName: coachName,
-        coachContact: coachContact,
-        ownerEmail: "tangenimatheus",
-      ).toMap();
-      
-      // Insert team into database
-      final result = await collection.insert(teamData);
-      
-      if (result != null) {
-        final String teamId = result['_id'].toString();
-        return {
-          'success': true,
-          'message': 'Team registered successfully',
-          'teamId': teamId
-        };
+      if (result.isSuccess) {
+        final teamId = result.id.toString();
+        
+        // Create players sub-collection for this team
+        final playersResult = await createPlayersSubCollection(teamId);
+        
+        if (playersResult['success']) {
+          return {
+            'success': true,
+            'message': 'Team registered successfully with players collection',
+            'teamId': teamId,
+            'playersCollectionId': playersResult['playersCollectionId'],
+          };
+        } else {
+          // Team created but players collection failed
+          return {
+            'success': true,
+            'message': 'Team registered but players collection setup failed',
+            'teamId': teamId,
+            'warning': playersResult['message'],
+          };
+        }
       } else {
         return {
           'success': false,
-          'message': 'Failed to register team - no result from database'
+          'message': 'Failed to register team: ${result.writeError?.errmsg ?? "Unknown error"}',
         };
       }
     } catch (e) {
-      print('Error registering team: $e');
+      print('Error in registerTeam: $e');
       return {
         'success': false,
-        'message': 'An error occurred during team registration: ${e.toString()}'
+        'message': 'An error occurred while registering the team: $e',
       };
     }
   }
@@ -139,6 +154,32 @@ class TeamService {
     } catch (e) {
       print('Error fetching teams: $e');
       return [];
+    }
+  }
+
+  // Add this method to handle players sub-collection
+  static Future<Map<String, dynamic>> createPlayersSubCollection(String teamId) async {
+    try {
+      final playersCollection = MongoDBService.getCollection('players');
+      
+      // Create an initial empty document for the team's players
+      final result = await playersCollection.insertOne({
+        'teamId': teamId,
+        'teamPlayers': [], // Array to store player references
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+      
+      return {
+        'success': true,
+        'playersCollectionId': result.id.toString(),
+      };
+    } catch (e) {
+      print('Error creating players sub-collection: $e');
+      return {
+        'success': false,
+        'message': 'Failed to create players collection: $e',
+      };
     }
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/elements/custom_text_field.dart';
-import 'package:hocky_na_org/login_screen.dart'; // To navigate back
-import 'package:hocky_na_org/home_page.dart'; // Placeholder for navigation after sign up
-import 'package:hocky_na_org/verification_screen.dart';
+import 'package:hocky_na_org/veiws/coach/login_screen.dart'; // To navigate back
+import 'package:hocky_na_org/veiws/coach/coach_home_page.dart'; // Placeholder for navigation after sign up
+import 'package:hocky_na_org/veiws/player/verification_screen.dart';
 import 'package:hocky_na_org/services/user_service.dart';
 
 class RegisterScreen extends StatefulWidget {

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/elements/custom_text_field.dart';
-import 'package:hocky_na_org/home_page.dart'; // For navigation after registration
+import 'package:hocky_na_org/veiws/coach/coach_home_page.dart'; // For navigation after registration
 import 'package:hocky_na_org/services/team_service.dart';
 import 'package:hocky_na_org/services/user_state.dart';
 import 'package:image_picker/image_picker.dart';

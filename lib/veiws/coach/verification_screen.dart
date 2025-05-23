@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hocky_na_org/home_page.dart'; // For navigation after verification
-import 'dart:math'; // For random number generation
-import 'package:http/http.dart' as http; // For API request
+import 'package:hocky_na_org/veiws/coach/coach_home_page.dart';
+import 'package:hocky_na_org/team_management/team_query_screen.dart';
+import 'dart:math';
+import 'package:http/http.dart' as http;
 import 'package:hocky_na_org/services/mongodb_service.dart';
-import 'package:hocky_na_org/services/user_service.dart';
-
-import 'login_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
-  final String? contact; // Email or phone where code was sent
-  final bool isForgotPassword; // Determines if this is for forgot password flow or signup
-  final String? userId; // Added userId parameter for user verification
+  final String phoneNumber;
+  final String email;
+  final String coachName;
+  final String teamName;
 
   const VerificationScreen({
-    super.key, 
-    this.contact,
-    this.isForgotPassword = false,
-    this.userId,
+    super.key,
+    required this.phoneNumber,
+    required this.email,
+    required this.coachName,
+    required this.teamName,
   });
 
   @override
@@ -27,11 +27,11 @@ class VerificationScreen extends StatefulWidget {
 class _VerificationScreenState extends State<VerificationScreen> {
   // Controllers for the code input fields
   final List<TextEditingController> _controllers = List.generate(
-    5, 
-    (_) => TextEditingController()
+    5,
+    (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(5, (_) => FocusNode());
-  
+
   // Timer for code expiry
   int _secondsRemaining = 300; // 5 minutes in seconds
   bool _isTimerActive = true;
@@ -40,9 +40,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   void initState() {
     super.initState();
-    // Start a timer to update the countdown
     _startTimer();
-    _generateAndSendCode(); // Generate and send verification code
+    _generateAndSendCode();
   }
 
   // Generate a random 5-digit code and send it via API
@@ -50,78 +49,104 @@ class _VerificationScreenState extends State<VerificationScreen> {
     // Generate random 5 digit code
     final random = Random();
     _generatedCode = List.generate(5, (_) => random.nextInt(10)).join();
-    
-    // Format phone number (extract from contact if available or use demo number)
-    final phoneNumber = widget.contact?.replaceAll(RegExp(r'[^0-9]'), '') ?? '0818031157';
-    
-    print("Generating verification code: $_generatedCode for contact: $phoneNumber");
-    
+
     // URL encode the message
-    final message = Uri.encodeComponent("Your verification code is: $_generatedCode");
-    
+    final message = Uri.encodeComponent(
+      "Your verification code is: $_generatedCode",
+    );
+
     // Build API URL with generated code - using the correct format for MTC
-    final apiUrl = 'https://connectsms.mtc.com.na/api.asmx/SendSMS'
+    final apiUrl =
+        'https://connectsms.mtc.com.na/api.asmx/SendSMS'
         '?from_number=0814800039'
         '&username=Ausgezeichnet'
         '&password=User@0046'
-        '&destination=$phoneNumber'
+        '&destination=${widget.phoneNumber}'
         '&message=$message';
-    
+
     try {
-      // Call the API with a GET request (not POST as previously attempted)
-      print("Sending SMS request to: ${apiUrl.replaceAll(RegExp(r'password=[^&]*'), 'password=XXXXX')}");
+      // Call the API with a GET request
+      print(
+        "Sending SMS request to: ${apiUrl.replaceAll(RegExp(r'password=[^&]*'), 'password=XXXXX')}",
+      );
       final response = await http.get(Uri.parse(apiUrl));
-      
+
       if (response.statusCode == 200) {
         final responseBody = response.body;
         print('SMS API response: $responseBody');
-        
-        // Check if the SMS was sent successfully (look for success indicators)
-        if (responseBody.contains("<Status>0</Status>") || responseBody.contains("success")) {
+
+        // Check if the SMS was sent successfully
+        if (responseBody.contains("<Status>0</Status>") ||
+            responseBody.contains("success")) {
           print('SMS sent successfully with code: $_generatedCode');
-          
+
           // Store verification code in MongoDB
           await MongoDBService.storeVerificationCode(
-            contact: phoneNumber,
+            contact: widget.phoneNumber,
             code: _generatedCode,
             expiresAt: DateTime.now().add(Duration(seconds: _secondsRemaining)),
           );
-          
-          // For testing/development only (remove in production):
-          if (mounted) {
-            setState(() {
-              for (int i = 0; i < 5; i++) {
-                if (i < _generatedCode.length) {
-                  _controllers[i].text = _generatedCode[i]; // Auto-fill for testing
-                }
-              }
-            });
-          }
+
+          // Remove auto-fill code for production
+          // Users must manually enter the code they receive
         } else {
           // Extract error message if possible
           String errorMessage = "Unknown error";
           if (responseBody.contains("<ErrorMessage>")) {
-            final startIndex = responseBody.indexOf("<ErrorMessage>") + "<ErrorMessage>".length;
+            final startIndex =
+                responseBody.indexOf("<ErrorMessage>") +
+                "<ErrorMessage>".length;
             final endIndex = responseBody.indexOf("</ErrorMessage>");
             if (startIndex != -1 && endIndex != -1) {
               errorMessage = responseBody.substring(startIndex, endIndex);
             }
           }
           print('Failed to send SMS. Error: $errorMessage');
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to send verification code: $errorMessage',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       } else {
         print('Failed to send SMS. Status code: ${response.statusCode}');
         print('Response: ${response.body}');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to send verification code. Please try again.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       print('Error sending SMS: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sending verification code: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   void _startTimer() {
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
-      
+
       setState(() {
         if (_secondsRemaining > 0 && _isTimerActive) {
           _secondsRemaining--;
@@ -149,7 +174,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   String get _formattedTimeRemaining {
     int minutes = _secondsRemaining ~/ 60;
     int seconds = _secondsRemaining % 60;
-    return '$minutes minute${minutes != 1 ? 's' : ''}';
+    return '$minutes minute${minutes != 1 ? 's' : ''} ${seconds} second${seconds != 1 ? 's' : ''}';
   }
 
   // Check if all code fields are filled
@@ -165,23 +190,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
   // Verify the entered code against the stored code in MongoDB
   Future<bool> _verifyCode() async {
     try {
-      final phoneNumber = widget.contact?.replaceAll(RegExp(r'[^0-9]'), '') ?? '0818031157';
-      print("Verifying code for contact: $phoneNumber, code: $_fullCode, userId: ${widget.userId}");
-      
       final isCodeValid = await MongoDBService.verifyCode(
-        contact: phoneNumber,
+        contact: widget.phoneNumber,
         code: _fullCode,
       );
-      
+
       print("Code validation result: $isCodeValid");
-      
-      // If code is valid and we have a userId (from registration), verify the user account
-      if (isCodeValid && widget.userId != null && !widget.isForgotPassword) {
-        print("Verifying user account with ID: ${widget.userId}");
-        final userVerified = await UserService.verifyUserAccount(widget.userId!);
-        print("User verification result: $userVerified");
-      }
-      
       return isCodeValid;
     } catch (e) {
       print("Error during verification: $e");
@@ -192,14 +206,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(widget.isForgotPassword ? 'Forgot Password' : 'Verify Your Number'),
+        title: const Text('Verify Your Number'),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -210,77 +224,96 @@ class _VerificationScreenState extends State<VerificationScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                
+
+                // Welcome message
+                Text(
+                  "Welcome, ${widget.coachName}",
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleLarge,
+                ),
+
+                const SizedBox(height: 10),
+
                 // Reassurance text
                 Text(
-                  widget.isForgotPassword 
-                      ? "Don't worry about your account" 
-                      : "Please enter the verification code",
+                  "Please enter the verification code",
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge,
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 // Verification code input boxes
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: List.generate(5, (index) => _buildCodeInput(index)),
                 ),
-                
+
                 const SizedBox(height: 30),
-                
-                // Code sent to info message
+
+                // Code sent info message
                 Text(
-                  'Code was sent to your ${widget.contact != null ? widget.contact! : "email"}',
+                  'Code was sent to ${widget.phoneNumber}',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.hintColor,
                   ),
                 ),
-                
+
                 const SizedBox(height: 10),
-                
+
                 // Code expiry message
                 Text(
                   'This code expires in $_formattedTimeRemaining',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: _secondsRemaining < 60 ? theme.colorScheme.error : theme.hintColor,
+                    color:
+                        _secondsRemaining < 60
+                            ? theme.colorScheme.error
+                            : theme.hintColor,
                   ),
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 // Verify button
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: _isCodeComplete 
-                        ? () async {
-                            if (await _verifyCode()) {
-                              // Code matches, proceed to next screen
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                              );
-                            } else {
-                              // Show error for incorrect code
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Invalid verification code'),
-                                  backgroundColor: theme.colorScheme.error,
-                                ),
-                              );
+                    onPressed:
+                        _isCodeComplete
+                            ? () async {
+                              if (await _verifyCode()) {
+                                // Code matches, proceed to next screen
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => Homepage(
+                                          email: widget.email,
+                                          teamName: widget.teamName,
+                                        ),
+                                  ),
+                                );
+                              } else {
+                                // Show error for incorrect code
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text(
+                                      'Invalid verification code',
+                                    ),
+                                    backgroundColor: theme.colorScheme.error,
+                                  ),
+                                );
+                              }
                             }
-                          } 
-                        : null, // Disable if code is incomplete
-                    child: const Text('Verify code'),
+                            : null, // Disable if code is incomplete
+                    child: const Text('Login'),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // Resend code button
                 TextButton(
                   onPressed: () {
@@ -288,7 +321,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     setState(() {
                       _secondsRemaining = 300;
                       _isTimerActive = true;
-                      
+
                       for (var controller in _controllers) {
                         controller.clear();
                       }
@@ -296,7 +329,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         _focusNodes[0].requestFocus();
                       }
                     });
-                    
+
                     // Show confirmation snackbar
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -337,9 +370,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             borderSide: BorderSide.none,
           ),
         ),
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-        ],
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         onChanged: (value) {
           if (value.isNotEmpty && index < 4) {
             _focusNodes[index + 1].requestFocus();
@@ -349,4 +380,4 @@ class _VerificationScreenState extends State<VerificationScreen> {
       ),
     );
   }
-} 
+}
