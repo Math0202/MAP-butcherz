@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // import 'package:hocky_na_org/home_page.dart';
 import 'package:hocky_na_org/team_management/team_query_screen.dart';
 
-import '../veiws/coach/login_screen.dart';
+import '../veiws/coach/coach_login_screen.dart';
 import '../veiws/player/register_screen.dart'; // Import the new screen
 
 class TandCs extends StatefulWidget {

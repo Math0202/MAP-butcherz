@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hocky_na_org/elements/custom_text_field.dart';
-import 'package:hocky_na_org/veiws/coach/coach_login_screen.dart'; // To navigate back
-import 'package:hocky_na_org/veiws/coach/coach_home_page.dart'; // Placeholder for navigation after sign up
-import 'package:hocky_na_org/veiws/player/verification_screen.dart';
+import 'package:hocky_na_org/veiws/coach/coach_login_screen.dart';
 import 'package:hocky_na_org/services/user_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -29,7 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _ageController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   // For storing user ID after successful registration
   String? _registeredUserId;
 
@@ -55,7 +53,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_emailController.text.isEmpty) {
       return 'Email is required';
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text)) {
+    if (!RegExp(
+      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+    ).hasMatch(_emailController.text)) {
       return 'Please enter a valid email address';
     }
     if (_phoneController.text.isEmpty) {
@@ -81,19 +81,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Validate form
     final validationError = _validateForm();
     if (validationError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(validationError))
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validationError)));
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      print("Attempting to register user with email: ${_emailController.text} and phone: ${_phoneController.text}");
-      
+      print(
+        "Attempting to register user with email: ${_emailController.text} and phone: ${_phoneController.text}",
+      );
+
       final result = await UserService.registerUser(
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim(),
@@ -103,36 +105,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
         gender: _genderController.text.trim(),
         age: _ageController.text.trim(),
       );
-      
+
       print("Registration result: $result");
-      
+
       if (result['success'] == true) {
         // Store user ID for verification step
         _registeredUserId = result['userId'];
         print("User registered with ID: $_registeredUserId");
-        
+
         // Navigate to verification screen
-        Navigator.push(
+        /*Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => VerificationScreen(
-              phoneNumber: _phoneController.text.trim(),
-              email: _emailController.text.trim(),
-              coachName: '', 
-              teamName: '',
-            ),
+            builder:
+                (context) => VerificationScreen(
+                  contact: _phoneController.text.trim(),
+                  isForgotPassword: false,
+                  userId: _registeredUserId,
+                ),
           ),
-        );
+        );*/
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Registration failed'))
+          SnackBar(content: Text(result['message'] ?? 'Registration failed')),
         );
       }
     } catch (e) {
       print("Registration exception: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registration failed: $e'))
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -145,7 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -155,13 +157,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         title: const Text('Create Account'),
         centerTitle: true,
         elevation: 0, // Remove shadow for a cleaner look
-        backgroundColor: Colors.transparent, // Use transparent to match the background
+        backgroundColor:
+            Colors.transparent, // Use transparent to match the background
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           controller: _scrollController,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0), // Reduced top padding since we have an AppBar now
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 16.0,
+            ), // Reduced top padding since we have an AppBar now
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -179,7 +185,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Full Name Field
                 CustomTextField(
                   controller: _fullNameController,
@@ -187,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.person_outline,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Email Field
                 CustomTextField(
                   controller: _emailController,
@@ -196,7 +202,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Phone Field
                 CustomTextField(
                   controller: _phoneController,
@@ -205,7 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Field Position
                 CustomTextField(
                   controller: _fieldPositionController,
@@ -213,7 +219,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.sports_hockey_outlined,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Gender Field
                 CustomTextField(
                   controller: _genderController,
@@ -221,7 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.people_outline,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Age Field
                 CustomTextField(
                   controller: _ageController,
@@ -230,7 +236,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Password Field
                 CustomTextField(
                   controller: _passwordController,
@@ -239,7 +245,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: !_isPasswordVisible,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                      _isPasswordVisible
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: theme.hintColor,
                     ),
                     onPressed: () {
@@ -250,7 +258,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Confirm Password Field
                 CustomTextField(
                   controller: _confirmPasswordController,
@@ -259,7 +267,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: !_isConfirmPasswordVisible,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _isConfirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                      _isConfirmPasswordVisible
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: theme.hintColor,
                     ),
                     onPressed: () {
@@ -270,7 +280,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Terms and Conditions Checkbox
                 Row(
                   children: [
@@ -312,26 +322,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Sign Up Button
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _isLoading ? null : _registerUser,
-                    child: _isLoading
-                        ? SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.0,
-                              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.onPrimary),
-                            ),
-                          )
-                        : const Text('Create Account'),
+                    child:
+                        _isLoading
+                            ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.colorScheme.onPrimary,
+                                ),
+                              ),
+                            )
+                            : const Text('Create Account'),
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Sign In Link
                 Center(
                   child: Row(
@@ -346,7 +359,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           // Navigate back to login screen
                           Navigator.pushReplacement(
                             context,
-                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
                           );
                         },
                         child: Text(
@@ -371,7 +386,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Method to show terms and conditions in a modal bottom sheet
   void _showTermsAndConditions(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, // Make it larger
@@ -391,10 +406,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     // Header with close button
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: theme.scaffoldBackgroundColor,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -410,10 +430,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ],
                       ),
                     ),
-                    
+
                     // Divider below header
                     Divider(height: 1, color: theme.dividerColor),
-                    
+
                     // Terms content (scrollable)
                     Expanded(
                       child: SingleChildScrollView(
@@ -529,7 +549,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     ),
-                    
+
                     // Accept button at the bottom
                     Container(
                       width: double.infinity,
@@ -586,4 +606,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
     );
   }
-} 
+}

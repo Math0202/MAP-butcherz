@@ -5,8 +5,9 @@ import 'dart:math'; // For random number generation
 import 'package:http/http.dart' as http; // For API request
 import 'package:hocky_na_org/services/mongodb_service.dart';
 import 'package:hocky_na_org/services/user_service.dart';
+import 'package:hocky_na_org/veiws/admin/admin_home_page.dart';
 
-import '../veiws/coach/login_screen.dart';
+import '../coach/coach_login_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String? contact; // Email or phone where code was sent
@@ -283,11 +284,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         _isCodeComplete
                             ? () async {
                               if (await _verifyCode()) {
-                                // Code matches, proceed to next screen
+                                // Code matches, proceed to admin dashboard
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const LoginScreen(),
+                                    builder: (context) => const adminHomePage(),
                                   ),
                                 );
                               } else {

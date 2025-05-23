@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:hocky_na_org/team_management/manage_roster_screen.dart'; // Import the ManageRosterScreen
-import 'package:hocky_na_org/veiws/coach/enter_events_screen.dart'; // Import the new screen
 import 'package:hocky_na_org/veiws/coach/notifications_screen.dart'; // Import the NotificationsScreen
 import 'package:hocky_na_org/veiws/coach/notifications_screen.dart'
     show NotificationItem;
-import 'package:hocky_na_org/services/user_service.dart';
-import 'package:hocky_na_org/veiws/coach/login_screen.dart';
+import 'package:hocky_na_org/veiws/player/login_screen.dart';
 import 'package:hocky_na_org/services/mongodb_service.dart'; // Add this import
+import 'package:hocky_na_org/veiws/player/manage_roster_screen.dart';
+import 'package:hocky_na_org/veiws/player/player_games.dart';
 import 'package:mongo_dart/mongo_dart.dart'
     show where; // Ensure mongo_dart is imported for 'where'
 
@@ -50,7 +49,7 @@ class _HomepageState extends State<Homepage> {
     // Initialize _pages in initState where widget.teamName is accessible
     _pages = [
       _HomeTab(key: _homeTabKey), // Assign the key to _HomeTab
-      EnterEventsScreen(teamName: widget.teamName), // Pass teamName here
+      coachGames(teamName: widget.teamName),
       ManageRosterScreen(teamName: widget.teamName),
       _ProfileTab(teamName: widget.teamName, email: widget.email),
     ];
@@ -556,203 +555,8 @@ class _HomepageState extends State<Homepage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          color: theme.scaffoldBackgroundColor,
-          onPressed: () {},
-        ),
-
-        title: const Text('Hockey.org Namibia'),
-        //centerTitle: true,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: Badge(
-              label: Text(_unreadNotificationsCount.toString()),
-              isLabelVisible: _unreadNotificationsCount > 0,
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            onPressed: () async {
-              // Make onPressed async
-              await Navigator.push(
-                // Await the result of NotificationsScreen
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationsScreen(),
-                ),
-              );
-              // Refresh count when returning from NotificationsScreen
-              _fetchUnreadNotificationsCount();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              // Show confirmation dialog
-              final shouldLogout = await showDialog<bool>(
-                context: context,
-                builder:
-                    (context) => AlertDialog(
-                      title: const Text('Log Out'),
-                      content: const Text('Are you sure you want to log out?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Log Out'),
-                        ),
-                      ],
-                    ),
-              );
-
-              if (shouldLogout == true) {
-                // Navigate to login screen
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false, // Clear all routes
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      /*drawer: Drawer(
-        // Add the Drawer widget here
-        child: ListView(
-          padding: EdgeInsets.zero, // Remove padding from ListView
-          children: <Widget>[
-            DrawerHeader(
-              decoration: BoxDecoration(color: theme.colorScheme.primary),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: theme.colorScheme.onPrimary.withOpacity(
-                      0.8,
-                    ),
-                    child: Icon(
-                      Icons.person,
-                      size: 30,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'User Name', // Replace with actual user name
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: theme.colorScheme.onPrimary,
-                    ),
-                  ),
-                  Text(
-                    'user.email@example.com', // Replace with actual user email
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onPrimary.withOpacity(0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.home_outlined),
-              title: const Text('Home'),
-              onTap: () {
-                _onItemTapped(0); // Navigate to Home tab
-                Navigator.pop(context); // Close the drawer
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.sports_hockey_outlined),
-              title: const Text('Matches'),
-              onTap: () {
-                _onItemTapped(1); // Navigate to Matches tab
-                Navigator.pop(context); // Close the drawer
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.groups_outlined),
-              title: const Text('Teams'),
-              onTap: () {
-                _onItemTapped(2); // Navigate to Teams tab
-                Navigator.pop(context); // Close the drawer
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('Profile'),
-              onTap: () {
-                _onItemTapped(3); // Navigate to Profile tab
-                Navigator.pop(context); // Close the drawer
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.emoji_events_outlined),
-              title: const Text('Enter Events'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const EnterEventsScreen(),
-                  ),
-                );
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Settings'),
-              onTap: () {
-                // TODO: Navigate to Settings Screen
-                Navigator.pop(context); // Close the drawer
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('About'),
-              onTap: () {
-                // TODO: Navigate to About Screen
-                Navigator.pop(context); // Close the drawer
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: Icon(Icons.logout, color: theme.colorScheme.error),
-              title: Text(
-                'Logout',
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-              onTap: () {
-                // TODO: Implement Logout Logic
-                Navigator.pop(context); // Close the drawer
-                // Example: Navigator.pushReplacementNamed(context, '/login');
-              },
-            ),
-          ],
-        ),
-      ),*/
       body: _pages[_selectedIndex], // Show the selected tab content
-      floatingActionButton:
-          _selectedIndex == 0 ||
-                  _selectedIndex ==
-                      1 // Show FAB on Home and Matches/Events tab
-              ? FloatingActionButton(
-                onPressed: () {
-                  _showPostOptions(context);
-                },
-                backgroundColor: theme.colorScheme.primary,
-                child: const Icon(Icons.add, color: Colors.white),
-                tooltip: 'Post new content',
-              )
-              : null, // Hide FAB on other tabs
-      bottomNavigationBar: NavigationBar( 
+      bottomNavigationBar: NavigationBar(
         onDestinationSelected: _onItemTapped,
         selectedIndex: _selectedIndex,
         backgroundColor: theme.colorScheme.surface,
@@ -786,7 +590,6 @@ class _HomepageState extends State<Homepage> {
 
 // Placeholder widgets for each tab
 class _HomeTab extends StatefulWidget {
-  // Accept the key
   const _HomeTab({Key? key}) : super(key: key);
 
   @override
@@ -794,236 +597,538 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-  bool _isLoading = true;
+  bool _isLoadingNews = true;
+  bool _isLoadingMatches = true;
+  List<Map<String, dynamic>> _newsPosts = [];
   List<Map<String, dynamic>> _upcomingMatches = [];
-  List<Map<String, dynamic>> _latestNews = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchHomeData();
+    _fetchNews();
+    _fetchTeamMatches();
   }
 
-  // Public method to allow refreshing data from outside
-  Future<void> refreshData() async {
-    await _fetchHomeData();
-  }
-
-  Future<void> _fetchHomeData() async {
+  // Fetch news posts from MongoDB
+  Future<void> _fetchNews() async {
     if (!mounted) return;
+
     setState(() {
-      _isLoading = true;
+      _isLoadingNews = true;
     });
 
     try {
-      // Fetch upcoming matches
-      final matchesCollection = MongoDBService.getCollection('matches');
-      final matchCursor = matchesCollection
-          .find({'status': 'upcoming', 'isHighlighted': true})
-          .take(3);
-
-      // Fetch latest news - fix the aggregation pipeline
       final newsCollection = MongoDBService.getCollection('news');
+      // Fetch active news posts, sorted by timestamp (newest first)
+      final newsCursor = await newsCollection.find({'isActive': true}).toList();
 
-      // Use find() with sort instead of aggregate for simpler handling
-      final newsCursor = newsCollection.find().take(3);
-      // Sort the news by dateTime field (newest first)
-      final newsList = await newsCursor.toList();
-      newsList.sort(
-        (a, b) => DateTime.parse(
-          b['dateTime'].toString(),
-        ).compareTo(DateTime.parse(a['dateTime'].toString())),
-      );
-
-      // Process the results
-      final matchesList = await matchCursor.toList();
-
-      setState(() {
-        _upcomingMatches =
-            matchesList.map((doc) => doc as Map<String, dynamic>).toList();
-        _latestNews =
-            newsList.map((doc) => doc as Map<String, dynamic>).toList();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _newsPosts = List<Map<String, dynamic>>.from(newsCursor);
+          _newsPosts.sort((a, b) {
+            final aDate = a['createdAt']?.toString() ?? '';
+            final bDate = b['createdAt']?.toString() ?? '';
+            return bDate.compareTo(aDate); // Descending order (newest first)
+          });
+          _isLoadingNews = false;
+        });
+      }
     } catch (e) {
-      print('Error fetching home data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      print('Error fetching news: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingNews = false;
+        });
+      }
     }
+  }
+
+  // Modified _fetchTeamMatches method to show ALL matches
+  Future<void> _fetchTeamMatches() async {
+    if (!mounted) return;
+
+    final Homepage homePage =
+        context.findAncestorWidgetOfExactType<Homepage>() as Homepage;
+    final String teamName = homePage.teamName;
+
+    print('DEBUGGING: Fetching ALL matches from database (no filters)');
+
+    setState(() {
+      _isLoadingMatches = true;
+    });
+
+    try {
+      final matchesCollection = MongoDBService.getCollection('matches');
+
+      // Get ALL matches from the database without any filters
+      // Use proper Map<String, dynamic> syntax for empty query
+      final allMatches =
+          await matchesCollection.find(<String, dynamic>{}).toList();
+
+      // Print all matches to console
+      print('DEBUGGING: Found ${allMatches.length} total matches in database:');
+      for (int i = 0; i < allMatches.length; i++) {
+        final match = allMatches[i];
+        print('----- Match ${i + 1} -----');
+        match.forEach((key, value) {
+          print('$key: $value');
+        });
+      }
+
+      // Display ALL matches without any filtering
+      if (mounted) {
+        setState(() {
+          _upcomingMatches = List<Map<String, dynamic>>.from(allMatches);
+
+          // Sort the matches by date (if date exists)
+          _upcomingMatches.sort((a, b) {
+            try {
+              final aDate = a['gameDate']?.toString() ?? '';
+              final bDate = b['gameDate']?.toString() ?? '';
+              if (aDate.isEmpty || bDate.isEmpty) return 0;
+              return aDate.compareTo(bDate);
+            } catch (e) {
+              return 0;
+            }
+          });
+
+          print(
+            'DEBUGGING: Displaying ${_upcomingMatches.length} matches in UI',
+          );
+          _isLoadingMatches = false;
+        });
+      }
+    } catch (e) {
+      print('DEBUGGING: Error fetching matches: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingMatches = false;
+        });
+      }
+    }
+  }
+
+  Future<void> refreshData() async {
+    await _fetchNews();
+    await _fetchTeamMatches();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final theme = Theme.of(context);
+    final teamName =
+        (context.findAncestorWidgetOfExactType<Homepage>() as Homepage)
+            .teamName;
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Your existing welcome content
-          Container(
-            height: 200,
-            width: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              image: DecorationImage(
-                image: AssetImage('assets/player_avatar_male.png'),
-                fit: BoxFit.cover,
+    return RefreshIndicator(
+      onRefresh: refreshData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Welcome header
+            if (teamName.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'Welcome, $teamName Coach',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+
+            // Upcoming Matches Section
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: [
+                  Icon(Icons.sports_hockey, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'All Matches',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Welcome to Hocky.org NA',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Your hockey management app',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 40),
 
-          // Upcoming Matches Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Row(
-              children: [
-                Text(
-                  'Upcoming Matches',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            // Matches List or Empty State
+            _isLoadingMatches
+                ? const Center(child: CircularProgressIndicator())
+                : _upcomingMatches.isEmpty
+                ? _buildEmptyState(
+                  'No Matches Found',
+                  'No matches are available in the database.',
+                  Icons.event_busy,
+                )
+                : Column(
+                  children:
+                      _upcomingMatches.map((match) {
+                        // Debug print each match as it's being rendered
+                        print(
+                          'Rendering match: ${match['title']} for team $teamName',
+                        );
+                        return _buildMatchCard(match, theme, teamName);
+                      }).toList(),
                 ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    // Navigate to all matches screen
-                  },
-                  child: Text('---------------'),
+
+            // Add debug info at the bottom
+            if (_upcomingMatches.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  'Displaying ${_upcomingMatches.length} total matches',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
-              ],
+              ),
+
+            const SizedBox(height: 24),
+
+            // Latest News Section
+            _buildSectionHeader(theme, 'Latest News', Icons.newspaper),
+
+            if (_isLoadingNews)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_newsPosts.isEmpty)
+              _buildEmptyState(
+                'No news available',
+                'Check back soon for updates from the administration.',
+                Icons.feed,
+              )
+            else
+              Column(
+                children:
+                    _newsPosts
+                        .map((post) => _buildNewsCard(post, theme))
+                        .toList(),
+              ),
+
+            // Additional padding at bottom
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Build section header with icon
+  Widget _buildSectionHeader(ThemeData theme, String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 24, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
-
-          // Display featured matches
-          if (_upcomingMatches.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('No upcoming matches scheduled'),
-            )
-          else
-            ..._upcomingMatches.map((match) {
-              final matchDate = DateTime.parse(match['dateTime'].toString());
-              final formattedDate =
-                  '${_getWeekdayShort(matchDate)}, ${_getMonthShort(matchDate)} ${matchDate.day} • ${_formatTime(matchDate)}';
-
-              return Column(
-                children: [
-                  _FeaturedItem(
-                    title: match['title'],
-                    subtitle: match['venue'],
-                    description: '${match['teamA']} vs ${match['teamB']}',
-                    dateTime: formattedDate,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              );
-            }).toList(),
-
-          const SizedBox(height: 32),
-
-          // Latest News Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Row(
-              children: [
-                Text(
-                  'Latest News',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    // Navigate to all news screen
-                  },
-                  child: Text('----------------------'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Display news items
-          if (_latestNews.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('No news available'),
-            )
-          else
-            ..._latestNews.map((news) {
-              final newsDate = DateTime.parse(news['dateTime'].toString());
-              final daysAgo = DateTime.now().difference(newsDate).inDays;
-              final formattedDate =
-                  daysAgo == 0
-                      ? 'Today'
-                      : daysAgo == 1
-                      ? 'Yesterday'
-                      : '$daysAgo days ago';
-
-              return Column(
-                children: [
-                  _FeaturedItem(
-                    title: news['title'],
-                    subtitle: news['subtitle'],
-                    description: news['description'],
-                    dateTime: 'Posted $formattedDate',
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              );
-            }).toList(),
-
-          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  // Helper methods for date formatting
-  String _getWeekdayShort(DateTime date) {
-    final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return weekdays[date.weekday - 1];
+  // Build match card
+  Widget _buildMatchCard(
+    Map<String, dynamic> match,
+    ThemeData theme,
+    String teamName,
+  ) {
+    // Better date parsing with fallback
+    DateTime gameDate;
+    try {
+      gameDate = DateTime.parse(match['gameDate']);
+    } catch (e) {
+      print('Error parsing date for match ${match['title']}: $e');
+      gameDate = DateTime.now(); // Fallback
+    }
+
+    final String formattedDate =
+        "${gameDate.day.toString().padLeft(2, '0')}-${gameDate.month.toString().padLeft(2, '0')}-${gameDate.year}";
+    final String formattedTime =
+        "${gameDate.hour.toString().padLeft(2, '0')}:${gameDate.minute.toString().padLeft(2, '0')}";
+
+    // Determine if the team is playing at home
+    final bool isHomeTeam =
+        (match['teamA'].toString().toLowerCase() == teamName.toLowerCase());
+
+    print(
+      'Match card: ${match['title']} - Date: $formattedDate, Time: $formattedTime, isHome: $isHomeTeam',
+    );
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Match header with date, time, venue
+            Row(
+              children: [
+                Icon(Icons.event, size: 16, color: theme.hintColor),
+                const SizedBox(width: 4),
+                Text(
+                  '$formattedDate at $formattedTime',
+                  style: TextStyle(color: theme.hintColor, fontSize: 12),
+                ),
+                const Spacer(),
+                if (match['venue'] != null)
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 16, color: theme.hintColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        match['venue'],
+                        style: TextStyle(color: theme.hintColor, fontSize: 12),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Match title
+            Text(
+              match['title'] ?? 'Untitled Match',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Teams display
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        match['teamA'] ?? 'Team A',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isHomeTeam ? theme.colorScheme.primary : null,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const Text('vs', style: TextStyle(fontSize: 16)),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        match['teamB'] ?? 'Team B',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: !isHomeTeam ? theme.colorScheme.primary : null,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  String _getMonthShort(DateTime date) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[date.month - 1];
+  // Build news card
+  Widget _buildNewsCard(Map<String, dynamic> post, ThemeData theme) {
+    final DateTime createdAt =
+        post['createdAt'] != null
+            ? DateTime.parse(post['createdAt'])
+            : DateTime.now();
+
+    final String formattedDate =
+        "${createdAt.day.toString().padLeft(2, '0')}-${createdAt.month.toString().padLeft(2, '0')}-${createdAt.year}";
+    final bool isHighlighted = post['isHighlighted'] == true;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side:
+            isHighlighted
+                ? BorderSide(color: theme.colorScheme.primary, width: 2)
+                : BorderSide.none,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // News header with date and highlight indicator
+            Row(
+              children: [
+                Text(
+                  formattedDate,
+                  style: TextStyle(color: theme.hintColor, fontSize: 12),
+                ),
+                const Spacer(),
+                if (isHighlighted)
+                  Row(
+                    children: [
+                      Icon(Icons.star, size: 16, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Featured',
+                        style: TextStyle(
+                          color: Colors.amber.shade800,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // News title
+            Text(
+              post['title'] ?? 'Untitled',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            if (post['subtitle'] != null &&
+                post['subtitle'].toString().trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                post['subtitle'],
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+
+            if (post['content'] != null &&
+                post['content'].toString().trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                post['content'],
+                style: theme.textTheme.bodyMedium,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+
+            const SizedBox(height: 12),
+
+            // View full button
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  // Show full content in a dialog
+                  showDialog(
+                    context: context,
+                    builder:
+                        (context) => AlertDialog(
+                          title: Text(post['title'] ?? 'Untitled'),
+                          content: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (post['subtitle'] != null &&
+                                    post['subtitle']
+                                        .toString()
+                                        .trim()
+                                        .isNotEmpty) ...[
+                                  Text(
+                                    post['subtitle'],
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                                Text(post['content'] ?? ''),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Posted on $formattedDate',
+                                  style: TextStyle(
+                                    color: theme.hintColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                  );
+                },
+                child: const Text('Read More'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  String _formatTime(DateTime date) {
-    final hour = date.hour > 12 ? date.hour - 12 : date.hour;
-    final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:${date.minute.toString().padLeft(2, '0')} $period';
+  // Empty state widget
+  Widget _buildEmptyState(String title, String message, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade700),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1267,7 +1372,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                             Navigator.pushAndRemoveUntil(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const LoginScreen(),
+                                builder: (context) => const player_login(),
                               ),
                               (route) => false, // Clear all routes
                             );

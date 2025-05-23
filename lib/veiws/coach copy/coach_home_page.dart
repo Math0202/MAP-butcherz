@@ -53,6 +53,7 @@ class _HomepageState extends State<Homepage> {
       _HomeTab(key: _homeTabKey), // Assign the key to _HomeTab
       coachGames(teamName: widget.teamName),
       ManageRosterScreen(teamName: widget.teamName),
+      _ProfileTab(teamName: widget.teamName, email: widget.email),
     ];
 
     _fetchUnreadNotificationsCount();
@@ -578,6 +579,11 @@ class _HomepageState extends State<Homepage> {
             selectedIcon: Icon(Icons.groups),
             label: 'Teams',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
       ),
     );
@@ -729,11 +735,10 @@ class _HomeTabState extends State<_HomeTab> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
-                  '\n\n\nWelcome, $teamName Coach',
+                  'Welcome, $teamName Coach',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ),
 
@@ -1175,6 +1180,219 @@ class _TeamsTab extends StatelessWidget {
   }
 }
 
+// Update ProfileTab to be stateful so it can fetch and store user data
+class _ProfileTab extends StatefulWidget {
+  final String teamName;
+  final String email;
+
+  const _ProfileTab({required this.teamName, required this.email});
+
+  @override
+  State<_ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<_ProfileTab> {
+  bool _isLoading = true;
+  String _userName = '';
+  String _userEmail = '';
+  String _userGender = 'Male'; // Default to Male
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserProfile();
+  }
+
+  Future<void> _fetchUserProfile() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final usersCollection = MongoDBService.getCollection('users');
+
+      // Try to find user by email
+      final user = await usersCollection.findOne({'email': widget.email});
+
+      if (user != null) {
+        final Map<String, dynamic> userData = user as Map<String, dynamic>;
+        print('Found user profile: $userData');
+
+        setState(() {
+          // Direct check for fullName field which exists in your user document
+          if (userData.containsKey('fullName')) {
+            _userName = userData['fullName'];
+          } else {
+            _userName = userData['fullName']; // Fallback name
+          }
+
+          _userEmail = widget.email;
+
+          // Make sure gender value is standardized for comparison
+          String genderValue =
+              (userData['gender'] ?? 'male').toString().toLowerCase();
+          _userGender = genderValue == 'female' ? 'Female' : 'Male';
+
+          _isLoading = false;
+        });
+      } else {
+        print('User not found with email: ${widget.email}');
+        setState(() {
+          _userName = 'User';
+          _userEmail = widget.email;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching user profile: $e');
+      setState(() {
+        _userName = 'User';
+        _userEmail = widget.email;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Choose avatar based on gender
+    final String userAvatarUrl =
+        _userGender.toLowerCase() == 'female'
+            ? 'assets/player_avatar_female.png'
+            : 'assets/player_avatar_male.png';
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            backgroundImage: AssetImage(userAvatarUrl),
+            child:
+                !userAvatarUrl.contains('assets/') // Fallback if image fails
+                    ? Text(
+                      _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                      style: theme.textTheme.headlineLarge?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    )
+                    : null,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _userName,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _userEmail,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+          ),
+          const SizedBox(height: 30),
+          const Divider(),
+          _ProfileMenuItem(
+            icon: Icons.person_outline,
+            title: 'Edit Profile',
+            onTap: () {
+              // TODO: Navigate to Edit Profile Screen
+            },
+          ),
+          _ProfileMenuItem(
+            icon: Icons.shield_outlined,
+            title: 'Manage My Roster',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) =>
+                          ManageRosterScreen(teamName: widget.teamName),
+                ),
+              );
+            },
+          ),
+          _ProfileMenuItem(
+            icon: Icons.notifications_outlined,
+            title: 'Notifications',
+            onTap: () {
+              // TODO: Navigate to Notifications Settings Screen
+            },
+          ),
+          _ProfileMenuItem(
+            icon: Icons.lock_outline,
+            title: 'Change Password',
+            onTap: () {
+              // TODO: Navigate to Change Password Screen
+            },
+          ),
+          _ProfileMenuItem(
+            icon: Icons.settings_outlined,
+            title: 'App Settings',
+            onTap: () {
+              // TODO: Navigate to App Settings Screen
+            },
+          ),
+          const Divider(),
+          _ProfileMenuItem(
+            icon: Icons.help_outline,
+            title: 'Help & Support',
+            onTap: () {
+              // TODO: Navigate to Help Screen
+            },
+          ),
+          _ProfileMenuItem(
+            icon: Icons.logout,
+            title: 'Logout',
+            isDestructive: true,
+            onTap: () {
+              // Show confirmation dialog
+              showDialog<bool>(
+                context: context,
+                builder:
+                    (context) => AlertDialog(
+                      title: const Text('Log Out'),
+                      content: const Text('Are you sure you want to log out?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(context, true);
+                            // Navigate to login screen
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                              (route) => false, // Clear all routes
+                            );
+                          },
+                          child: const Text('Log Out'),
+                        ),
+                      ],
+                    ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Helper widget for featured items on home tab
 class _FeaturedItem extends StatelessWidget {
   final String title;
   final String subtitle;

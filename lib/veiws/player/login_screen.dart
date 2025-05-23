@@ -9,36 +9,34 @@ import 'package:hocky_na_org/veiws/player/verification_screen.dart';
 // Add these imports for HTTP requests and JSON encoding
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:hocky_na_org/services/mongodb_service.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class player_login extends StatefulWidget {
+  const player_login({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<player_login> createState() => _player_loginState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  bool _isPasswordVisible = false;
+class _player_loginState extends State<player_login> {
   bool _keepMeSignedIn = false;
   bool _isLoading = false;
 
   // Add TextEditingControllers for email and password
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
   // Login method
   Future<void> _login() async {
     // Basic validation
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_emailController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both email and password')),
+        const SnackBar(content: Text('Please enter your email')),
       );
       return;
     }
@@ -47,116 +45,186 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // Show a notification that a security SMS will be sent
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'For your security, a notification will be sent to your registered phone number',
-        ),
-        duration: Duration(seconds: 2), // Keep duration short as login proceeds
-      ),
-    );
-
-    // --- Send request to webhook ---
     try {
-      final String email = _emailController.text.trim();
-      final Uri webhookUrl = Uri.parse(
-        'https://math0202.app.n8n.cloud/webhook/email-verification',
-      );
-      final String payload = jsonEncode({'email': email});
+      // Fetch user data to check team assignment and get phone number
+      final usersCollection = MongoDBService.getCollection('users');
+      final user = await usersCollection.findOne({
+        'email': _emailController.text.trim(),
+      });
 
-      // Make the POST request. We'll print the response but not wait for it
-      // to avoid delaying the login process.
-      http
-          .post(
-            webhookUrl,
-            headers: {'Content-Type': 'application/json'},
-            body: payload,
-          )
-          .then((response) {
-            print('Webhook response status: ${response.statusCode}');
-            print('Webhook response body: ${response.body}');
-            // You could add more handling here if needed, e.g., based on status code
-          })
-          .catchError((error) {
-            print('Error sending request to webhook: $error');
-            // Log this error, but don't necessarily block login
-          });
-    } catch (e) {
-      print('Error preparing/sending webhook request: $e');
-      // This catch is for errors in constructing the request itself (e.g., bad URI)
-    }
-    // --- End of webhook request ---
-
-    try {
-      final result = await UserService.loginUser(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
-      if (result['success'] == true) {
-        // Navigate to appropriate screen after successful login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) =>
-                    TeamQueryScreen(email: _emailController.text.trim()),
-          ),
-        );
-      } else if (result['unverified'] == true) {
-        // User exists but is not verified, send to verification
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Your account is not verified, your clan will be notified',
-            ),
-          ),
-        );
-
-        // Navigate to verification screen with the user's ID
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) =>
-                    TeamQueryScreen(email: _emailController.text.trim()),
-          ),
-        );
-      } else {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Login failed')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Login error: $e')));
-    } finally {
-      if (mounted) {
+      if (user == null) {
         setState(() {
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'User not found. Please check your email or register first.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
       }
+
+      // Extract user information
+      final String? phoneNumber = user['phoneNumber'] ?? user['phone'];
+      final String? teamName = user['teamName'];
+      final String? fullName = user['fullName'] ?? user['name'];
+
+      print('User found: ${user['email']}');
+      print('Phone: $phoneNumber');
+      print('Team: $teamName');
+      print('Name: $fullName');
+
+      // Check if user has a team assigned
+      if (teamName == null || teamName.toString().trim().isEmpty) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        // Show notification that player doesn't have a team
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              icon: const Icon(
+                Icons.info_outline,
+                color: Colors.orange,
+                size: 48,
+              ),
+              title: const Text('No Team Assigned'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Hello ${fullName ?? 'Player'}!',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'You are not currently assigned to any team. Please contact your coach or team administrator to be added to a team roster.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline,
+                          color: Colors.blue[700],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Tip: Make sure your coach has your correct email address',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Navigate to team query screen to select/join a team
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TeamQueryScreen(
+                          email: _emailController.text.trim(),
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Browse Teams'),
+                ),
+              ],
+            );
+          },
+        );
+        return;
+      }
+
+      // Check if user has phone number for verification
+      if (phoneNumber == null || phoneNumber.toString().trim().isEmpty) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Phone number not found. Please contact your coach to update your profile.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Show welcome message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Welcome ${fullName ?? 'Player'} from $teamName! SMS verification code will be sent to $phoneNumber',
+          ),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate directly to verification screen - it will handle SMS sending
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VerificationScreen(
+            phoneNumber: phoneNumber.toString(),
+            email: _emailController.text.trim(),
+            coachName: fullName ?? 'Player',
+            teamName: teamName.toString(),
+          ),
+        ),
+      );
+
+    } catch (e) {
+      print('Error during login: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context); // Get the current theme
-    // No need to define colors here anymore, they come from the theme!
-    // final backgroundColor = Colors.grey[100]; // REMOVE
-    // const textFieldColor = Colors.white; // REMOVE (or get from theme if needed)
-    // final buttonColor = theme.colorScheme.primary; // REMOVE (use theme directly)
-    // const textColor = Colors.black87; // REMOVE (use theme)
-    // const hintColor = Colors.black54; // REMOVE (use theme)
+    final theme = Theme.of(context);
 
     return Scaffold(
-      // backgroundColor is handled by theme's scaffoldBackgroundColor
       body: SafeArea(
         child: SingleChildScrollView(
-          // Allows scrolling when keyboard appears
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 24.0,
@@ -167,126 +235,42 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 // --- Header ---
                 Text(
-                  'Log in',
-                  // Use headlineLarge style defined in the theme
+                  'Player log in',
                   style: theme.textTheme.headlineLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please fill in your credentials',
-                  // Use bodyMedium style and maybe adjust color slightly if needed
+                  'Enter your email to receive verification code',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.hintColor, // Use theme's hint color
+                    color: theme.hintColor,
                   ),
                 ),
                 const SizedBox(height: 40),
 
-                // --- Email Field ---
+                // --- Email Input ---
                 CustomTextField(
-                  hintText: 'Email',
-                  prefixIcon: Icons.person_outline,
-                  keyboardType: TextInputType.emailAddress,
                   controller: _emailController,
-                ),
-                const SizedBox(height: 20),
-
-                // --- Password Field ---
-                CustomTextField(
-                  hintText: 'Password',
-                  prefixIcon: Icons.lock_outline,
-                  obscureText: !_isPasswordVisible,
-                  keyboardType: TextInputType.visiblePassword,
-                  controller: _passwordController,
-                  suffixIcon: IconButton(
-                    // Use theme's hint color for the icon
-                    icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: theme.hintColor,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
-                      });
-                    },
-                  ),
-                  // Let CustomTextField use InputDecorationTheme defaults
-                  // textFieldColor: textFieldColor, // REMOVE
-                  // hintColor: hintColor, // REMOVE
-                ),
-                const SizedBox(height: 16),
-
-                // --- Keep Signed In & Forgot Password ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        SizedBox(
-                          height: 24.0,
-                          width: 24.0,
-                          // CheckboxTheme in main.dart handles styling
-                          child: Checkbox(
-                            value: _keepMeSignedIn,
-                            onChanged: (bool? value) {
-                              setState(() {
-                                _keepMeSignedIn = value ?? false;
-                              });
-                            },
-                            // activeColor: buttonColor, // REMOVE
-                            // checkColor: Colors.white, // REMOVE
-                            // side: BorderSide(color: hintColor), // REMOVE
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Keep me signed in',
-                          // Use theme's bodyMedium style
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        // Navigate to verification screen for password reset
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => const VerificationScreen(
-                                  isForgotPassword: true,
-                                ),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Forgot password?',
-                        // Use theme's bodyMedium style
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  ],
+                  hintText: 'Email',
+                  prefixIcon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 30),
 
                 // --- Log In Button ---
                 SizedBox(
                   width: double.infinity,
-                  // FilledButtonTheme in main.dart handles styling
                   child: FilledButton(
                     onPressed: _isLoading ? null : _login,
-                    child:
-                        _isLoading
-                            ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                            : const Text('Log in'),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Send Verification Code'),
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -297,14 +281,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       "Don't have an account? ",
-                      // Use theme's bodyMedium style
                       style: theme.textTheme.bodyMedium,
                     ),
                     TextButton(
                       onPressed: () {
-                        // Navigate to Register Screen
                         Navigator.push(
-                          // Use push to allow going back
                           context,
                           MaterialPageRoute(
                             builder: (context) => const RegisterScreen(),
@@ -318,9 +299,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Text(
                         'Create an account',
-                        // Use theme's bodyMedium style, maybe make primary color?
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.primary, // Make it stand out
+                          color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold,
                           decoration: TextDecoration.underline,
                         ),
@@ -329,63 +309,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 40),
-
-                // --- Divider ---
-                Row(
-                  children: [
-                    // Use theme's divider color
-                    Expanded(
-                      child: Divider(color: theme.dividerColor, thickness: 0.8),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      child: Text(
-                        'or continue with',
-                        // Use theme's bodySmall style and hint color
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.hintColor,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Divider(color: theme.dividerColor, thickness: 0.8),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-
-                // --- Social Logins ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: SocialLoginButton(
-                        label: 'Google',
-                        iconAsset: 'assets/google_icon.png',
-                        onPressed: () {
-                          // TODO: Implement Google Sign-In
-                        },
-                        // Let SocialLoginButton use theme defaults or define its own theme-aware style
-                        // buttonColor: textFieldColor, // REMOVE
-                        // textColor: textColor, // REMOVE
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: SocialLoginButton(
-                        label: 'Apple',
-                        iconAsset: 'assets/apple_icon.jpg',
-                        isApple: true,
-                        onPressed: () {
-                          // TODO: Implement Apple Sign-In
-                        },
-                        // Let SocialLoginButton use theme defaults or define its own theme-aware style
-                        // buttonColor: textFieldColor, // REMOVE
-                        // textColor: textColor, // REMOVE
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),

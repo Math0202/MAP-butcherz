@@ -6,7 +6,7 @@ import 'package:hocky_na_org/veiws/coach/notifications_screen.dart'; // Import t
 import 'package:hocky_na_org/veiws/coach/notifications_screen.dart'
     show NotificationItem;
 import 'package:hocky_na_org/services/user_service.dart';
-import 'package:hocky_na_org/veiws/coach/login_screen.dart';
+import 'package:hocky_na_org/veiws/coach/coach_login_screen.dart';
 import 'package:hocky_na_org/services/mongodb_service.dart'; // Add this import
 import 'package:mongo_dart/mongo_dart.dart' show where;
 

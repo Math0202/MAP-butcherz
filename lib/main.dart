@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:hocky_na_org/veiws/coach/login_screen.dart';
+import 'package:hocky_na_org/On%20Boarding/Onboarding.dart';
+import 'package:hocky_na_org/veiws/player/login_screen.dart';
 import 'package:hocky_na_org/services/mongodb_service.dart';
+
+import 'login_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -199,7 +202,7 @@ class MyApp extends StatelessWidget {
       // --- Theme Mode ---
       themeMode: ThemeMode.system,
 
-      home: const LoginScreen(),
+      home: const Onboarding(),
     );
   }
 }

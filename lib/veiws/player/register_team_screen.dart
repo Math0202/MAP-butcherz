@@ -96,21 +96,27 @@ class _RegisterTeamScreenState extends State<RegisterTeamScreen> {
       );
 
       if (result['success'] == true) {
+        String message = result['message'] ?? 'Team registered successfully';
+        
+        // Add information about players collection
+        if (result['playersCollectionId'] != null) {
+          message += '\nPlayers management is now available for your team.';
+        } else if (result['warning'] != null) {
+          message += '\nNote: ${result['warning']}';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Team registered successfully'),
-          ),
+          SnackBar(content: Text(message)),
         );
 
         // Navigate to homepage after success
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder:
-                (context) => Homepage(
-                  email: email,
-                  teamName: _teamNameController.text.trim(),
-                ),
+            builder: (context) => Homepage(
+              email: email,
+              teamName: _teamNameController.text.trim(),
+            ),
           ),
         );
       } else {
