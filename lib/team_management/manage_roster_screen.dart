@@ -37,7 +37,11 @@ class Player {
     if (idValue is ObjectId) {
       idString = idValue.toHexString();
     } else {
-      idString = idValue?.toString() ?? Random().nextInt(100000).toString(); // Fallback, consider logging if _id is not ObjectId
+      idString =
+          idValue?.toString() ??
+          Random()
+              .nextInt(100000)
+              .toString(); // Fallback, consider logging if _id is not ObjectId
     }
 
     return Player(
@@ -83,6 +87,43 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
   List<Map<String, dynamic>> _availableUsers = [];
   Map<String, dynamic>? _selectedAvailableUser;
   bool _isLoadingAvailableUsers = false;
+
+  // Add position dropdown options
+  String _selectedPosition = 'Forward';
+  final List<String> _positions = [
+    'Forward',
+    'Defenseman',
+    'Goaltender',
+    'Center',
+    'Left Wing',
+    'Right Wing',
+  ];
+
+  // Add method to check if jersey number is taken
+  Future<bool> _isJerseyNumberTaken(
+    String jerseyNumber, {
+    String? excludePlayerId,
+  }) async {
+    try {
+      final usersCollection = MongoDBService.getCollection('users');
+
+      Map<String, dynamic> query = {
+        'teamName': widget.teamName,
+        'jerseyNumber': jerseyNumber,
+      };
+
+      // If we're updating a player, exclude their current record
+      if (excludePlayerId != null) {
+        query['_id'] = {'\$ne': ObjectId.fromHexString(excludePlayerId)};
+      }
+
+      final existingPlayer = await usersCollection.findOne(query);
+      return existingPlayer != null;
+    } catch (e) {
+      print('Error checking jersey number: $e');
+      return false; // Assume not taken if there's an error
+    }
+  }
 
   @override
   void initState() {
@@ -213,42 +254,54 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
       final usersCollection = MongoDBService.getCollection('users');
       // Ensure userIdHex is a valid hex string before attempting to convert
       if (!ObjectId.isValidHexId(userIdHex)) {
-        ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Invalid player ID format for $name.')),
         );
         return;
       }
 
       final result = await usersCollection.updateOne(
-        {'_id': ObjectId.fromHexString(userIdHex)}, // Convert hex string back to ObjectId for query
+        {
+          '_id': ObjectId.fromHexString(userIdHex),
+        }, // Convert hex string back to ObjectId for query
         {
           r'$set': {
-            'teamName': widget.teamName, // This updates the player's team to the current user's team
+            'teamName':
+                widget
+                    .teamName, // This updates the player's team to the current user's team
             'position': position,
             'jerseyNumber': jerseyNumber,
             'joinDate': DateTime.now().toIso8601String(),
             // name, email, phone, gender are inherent to the user's profile
             // and are not typically updated when they join a team.
             // The Player object is constructed from the user's existing data.
-          }
+          },
         },
       );
 
       if (result.isSuccess && result.nModified > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name has been added to ${widget.teamName}.')),
+    ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$name has been added to ${widget.teamName}.'),
+          ),
         );
         _fetchTeamPlayers(); // Refresh the roster to show the newly added player
         _fetchAvailableUsers(); // Refresh available users list
       } else if (result.isSuccess && result.nModified == 0) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Player $name is already up-to-date or not found with ID $userIdHex.')),
-        );
-      }
-      
-      else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add $name: ${result.writeError?.errmsg ?? "Unknown database error"}')),
+          SnackBar(
+            content: Text(
+              'Player $name is already up-to-date or not found with ID $userIdHex.',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to add $name: ${result.writeError?.errmsg ?? "Unknown database error"}',
+            ),
+          ),
         );
       }
     } catch (e) {
@@ -260,7 +313,11 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
   }
 
   // Method to update player's team-specific details in the database
-  Future<void> _updatePlayerTeamDetails(String playerIdHex, String newPosition, String newJerseyNumber) async {
+  Future<void> _updatePlayerTeamDetails(
+    String playerIdHex,
+    String newPosition,
+    String newJerseyNumber,
+  ) async {
     if (!ObjectId.isValidHexId(playerIdHex)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid player ID format for update.')),
@@ -277,7 +334,7 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
             'position': newPosition,
             'jerseyNumber': newJerseyNumber,
             // 'updatedAt': DateTime.now().toIso8601String(), // Optional: track updates
-          }
+          },
         },
       );
 
@@ -287,99 +344,234 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
         );
         _fetchTeamPlayers(); // Refresh the roster
       } else if (result.isSuccess && result.nModified == 0) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No changes made to player details or player not found.')),
-        );
-      }
-      
-      else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update player details: ${result.writeError?.errmsg ?? "Unknown error"}')),
+          const SnackBar(
+            content: Text(
+              'No changes made to player details or player not found.',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update player details: ${result.writeError?.errmsg ?? "Unknown error"}',
+            ),
+          ),
         );
       }
     } catch (e) {
       print('Error updating player team details: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred while updating player details: $e')),
+        SnackBar(
+          content: Text('An error occurred while updating player details: $e'),
+        ),
       );
     }
   }
 
-  // This method is called when "Edit" is selected from the popup menu.
-  void _editPlayer(Player playerToEdit) {
-    _showEditPlayerDialog(playerToEdit);
-  }
+  // Update the _editPlayer method to include position dropdown
+  void _editPlayer(Player player) {
+    // Pre-fill the controllers with current player data
+    _editPlayerPositionController.text = player.position;
+    _editPlayerJerseyNumberController.text = player.jerseyNumber;
+    _selectedPosition =
+        player.position; // Set the current position for dropdown
 
-  // Dialog to edit player's position and jersey number
-  Future<void> _showEditPlayerDialog(Player playerToEdit) async {
-    // Pre-fill controllers with current player data
-    _editPlayerPositionController.text = playerToEdit.position;
-    _editPlayerJerseyNumberController.text = playerToEdit.jerseyNumber;
-
-    return showDialog<void>(
+    showDialog(
       context: context,
-      barrierDismissible: false, // User must take an action
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Edit Player: ${playerToEdit.name}'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                CustomTextField(
-                  controller: _editPlayerPositionController,
-                  labelText: 'Position on Team',
-                  hintText: 'E.g., Forward, Defender',
-                  prefixIcon: Icons.sports_hockey,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _editPlayerJerseyNumberController,
-                  labelText: 'Jersey Number',
-                  hintText: 'E.g., 10 (Optional)',
-                  prefixIcon: Icons.numbers,
-                  keyboardType: TextInputType.number,
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            FilledButton(
-              child: const Text('Save Changes'),
-              onPressed: () {
-                if (_editPlayerPositionController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Position cannot be empty.')),
-                  );
-                  return;
-                }
-                // Jersey number can be optional or have validation
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  title: Text('Edit ${player.name}'),
+              content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Position Dropdown
+                        DropdownButtonFormField<String>(
+                          value: _selectedPosition,
+                          decoration: const InputDecoration(
+                            labelText: 'Position',
+                            prefixIcon: Icon(Icons.sports_hockey),
+                            border: OutlineInputBorder(),
+                          ),
+                          items:
+                              _positions.map((position) {
+                                return DropdownMenuItem(
+                                  value: position,
+                                  child: Text(position),
+                                );
+                              }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              _selectedPosition = value!;
+                              _editPlayerPositionController.text = value;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a position';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
 
-                _updatePlayerTeamDetails(
-                  playerToEdit.id, // playerToEdit.id should be the hex string of ObjectId
-                  _editPlayerPositionController.text.trim(),
-                  _editPlayerJerseyNumberController.text.trim(),
-                );
-                Navigator.of(dialogContext).pop(); // Close the dialog
-              },
-            ),
-          ],
-        );
-      },
+                        // Jersey Number Field
+                    CustomTextField(
+                          controller: _editPlayerJerseyNumberController,
+                          labelText: 'Jersey Number',
+                          hintText: 'Enter jersey number (1-99)',
+                          prefixIcon: Icons.numbers,
+                          keyboardType: TextInputType.number,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Player Info Display (read-only)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Player Information',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.person,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('Name: ${player.name}'),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.email,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text('Email: ${player.email}'),
+                                  ),
+                                ],
+                              ),
+                              if (player.phone.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.phone,
+                                      size: 16,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Phone: ${player.phone}'),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        // Reset the position selection
+                        _selectedPosition = 'Forward';
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () async {
+                        // Validate jersey number
+                        final jerseyNumber =
+                            _editPlayerJerseyNumberController.text.trim();
+                        if (jerseyNumber.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a jersey number.'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final number = int.tryParse(jerseyNumber);
+                        if (number == null || number < 1 || number > 99) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Jersey number must be between 1 and 99.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Check if jersey number is already taken by another player
+                        final isJerseyTaken = await _isJerseyNumberTaken(
+                          jerseyNumber,
+                          excludePlayerId: player.id,
+                        );
+
+                        if (isJerseyTaken) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Jersey number $jerseyNumber is already taken by another player.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Close dialog and update player
+                        Navigator.of(context).pop();
+
+                        _updatePlayerInfo(
+                          player,
+                          _selectedPosition,
+                          jerseyNumber,
+                        );
+                      },
+                      child: const Text('Update Player'),
+                    ),
+                  ],
+                ),
+          ),
     );
   }
 
   // Method to remove a player from the team (updates their DB record)
   Future<void> _removePlayerFromTeam(Player playerToRemove) async {
     if (!ObjectId.isValidHexId(playerToRemove.id)) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid player ID for removal: ${playerToRemove.name}')),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Invalid player ID for removal: ${playerToRemove.name}',
+          ),
+        ),
       );
       return;
     }
@@ -389,7 +581,8 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
         {'_id': ObjectId.fromHexString(playerToRemove.id)}, // Query by ObjectId
         {
           r'$set': {
-            'teamName': null, // Or an empty string, depending on your preference
+            'teamName':
+                null, // Or an empty string, depending on your preference
             'position': null,
             'jerseyNumber': null,
             // 'joinDate': null, // Optional: clear join date
@@ -406,12 +599,14 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
         _fetchTeamPlayers(); // Refresh the roster
         _fetchAvailableUsers(); // Also refresh the list of users available to be added
       } else if (result.isSuccess && result.nModified == 0) {
-    ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${playerToRemove.name} was not on the team or not found.')),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${playerToRemove.name} was not on the team or not found.',
+            ),
+          ),
         );
-      }
-      
-      else {
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -422,168 +617,287 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
       }
     } catch (e) {
       print('Error removing player from team: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error removing ${playerToRemove.name}: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error removing ${playerToRemove.name}: $e')),
+      );
     }
   }
 
-  Future<void> _showAddPlayerDialog() async {
-    // Reset form fields for the dialog
+  void _showAddPlayerDialog() {
+    // Reset form state
+    _selectedAvailableUser = null;
     _addPlayerPositionController.clear();
     _addPlayerJerseyNumberController.clear();
-    // _selectedGender = 'Male'; // Gender is part of the user, not set per team assignment
-    _selectedAvailableUser = null; // Reset selected user
+    _selectedPosition = 'Forward'; // Reset to default
 
-    // Fetch available users when dialog is opened
-    await _fetchAvailableUsers(); // Ensure this is awaited so the list is populated
-
-    // if (!mounted) return; // Check mounted status if doing async work before showDialog
-
-    return showDialog<void>(
+    showDialog(
       context: context,
-      barrierDismissible: false, // User must take an action
-      builder: (BuildContext dialogContext) {
-        // Use StatefulBuilder if the dialog's internal state needs to change
-        // based on interactions within the dialog itself (e.g., DropdownButtonFormField)
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Add Player to Roster'),
-              content: SingleChildScrollView(
-                child: ListBody(
-                  children: <Widget>[
-                    if (_isLoadingAvailableUsers)
-                      const Center(child: CircularProgressIndicator())
-                    else if (_availableUsers.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        child: Text(
-                          'No available users found to add.\nEnsure users exist and are not already on a team or this team.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Theme.of(context).hintColor),
-                        ),
-                      )
-                    else
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        decoration: const InputDecoration(
-                          labelText: 'Select User',
-                          border: OutlineInputBorder(),
-                        ),
-                        hint: const Text('Choose a user to add'),
-                        value: _selectedAvailableUser,
-                        isExpanded: true,
-                        items: _availableUsers.map((user) {
-                          return DropdownMenuItem<Map<String, dynamic>>(
-                            value: user,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  title: const Text('Add Player to Roster'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // User Selection Dropdown
+                        if (_isLoadingAvailableUsers)
+                          const Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(),
+                          )
+                        else if (_availableUsers.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
                             child: Text(
-                                "${user['name'] ?? 'Unnamed User'} (${user['email'] ?? 'No Email'})"),
-                          );
-                        }).toList(),
-                        onChanged: (Map<String, dynamic>? newValue) {
-                          setDialogState(() { // Use setDialogState from StatefulBuilder
-                            _selectedAvailableUser = newValue;
-                          });
-                        },
-                        validator: (value) =>
-                            value == null ? 'Please select a user' : null,
+                              'No available users found. Please register users first.',
+                              style: TextStyle(
+                                color: Theme.of(context).hintColor,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<Map<String, dynamic>>(
+                          decoration: const InputDecoration(
+                            labelText: 'Select User',
+                            border: OutlineInputBorder(),
+                          ),
+                          hint: const Text('Choose a user to add'),
+                          value: _selectedAvailableUser,
+                          isExpanded: true,
+                          items:
+                              _availableUsers.map((user) {
+                                return DropdownMenuItem<Map<String, dynamic>>(
+                                  value: user,
+                                  child: Text(
+                                    "${user['name'] ?? 'Unnamed User'} (${user['email'] ?? 'No Email'})",
+                                  ),
+                                );
+                              }).toList(),
+                          onChanged: (Map<String, dynamic>? newValue) {
+                            setDialogState(() {
+                              _selectedAvailableUser = newValue;
+                            });
+                          },
+                          validator:
+                              (value) =>
+                                  value == null ? 'Please select a user' : null,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Position Dropdown
+                    DropdownButtonFormField<String>(
+                          value: _selectedPosition,
+                      decoration: const InputDecoration(
+                            labelText: 'Position',
+                            prefixIcon: Icon(Icons.sports_hockey),
+                        border: OutlineInputBorder(),
                       ),
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      controller: _addPlayerPositionController,
-                      labelText: 'Position on Team',
-                      hintText: 'E.g., Forward, Defender',
-                      prefixIcon: Icons.sports_hockey,
-                    ),
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      controller: _addPlayerJerseyNumberController,
-                      labelText: 'Jersey Number',
-                      hintText: 'E.g., 10 (Optional)',
-                      prefixIcon: Icons.numbers,
-                      keyboardType: TextInputType.number,
+                          items:
+                              _positions.map((position) {
+                                return DropdownMenuItem(
+                                  value: position,
+                                  child: Text(position),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                              _selectedPosition = value!;
+                        });
+                      },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a position';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Jersey Number Field
+                        CustomTextField(
+                          controller: _addPlayerJerseyNumberController,
+                          labelText: 'Jersey Number',
+                          hintText: 'Enter jersey number (1-99)',
+                          prefixIcon: Icons.numbers,
+                          keyboardType: TextInputType.number,
                     ),
                   ],
                 ),
               ),
-              actions: <Widget>[
+                  actions: [
                 TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                  },
                 ),
                 FilledButton(
-                  child: const Text('Add to Team'),
-                  onPressed: () {
-                    if (_selectedAvailableUser == null) {
+                      onPressed: () async {
+                        // Validate user selection
+                        if (_selectedAvailableUser == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Please select a user to add.')),
+                            const SnackBar(
+                              content: Text('Please select a user to add.'),
+                            ),
                       );
                       return;
-                    }
-                    if (_addPlayerPositionController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                'Please enter a position for the player.')),
-                      );
-                      return;
-                    }
-
-                    final userToAssign = _selectedAvailableUser!;
-                    
-                    // Correctly extract ObjectId and convert to hex string
-                    final dynamic idValue = userToAssign['_id'];
-                    String userIdHex = '';
-
-                    if (idValue is ObjectId) {
-                      userIdHex = idValue.toHexString();
-                    } else if (idValue != null) {
-                      // This case should ideally not happen if _id is always ObjectId from DB
-                      // If it can be a string already, ensure it's a valid hex for ObjectId
-                      String tempId = idValue.toString();
-                      if (ObjectId.isValidHexId(tempId)) {
-                        userIdHex = tempId;
-                      } else {
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar(content: Text('Selected user has an invalid ID format.')),
-                         );
-                         return;
-                      }
                     }
                     
-                    if (userIdHex.isEmpty) {
-                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Selected user has no valid ID. Cannot add.')),
-                      );
-                      return;
-                    }
+                        // Validate jersey number
+                        final jerseyNumber =
+                            _addPlayerJerseyNumberController.text.trim();
+                        if (jerseyNumber.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a jersey number.'),
+                            ),
+                          );
+                          return;
+                        }
 
-                    final String userName = userToAssign['name'] ?? 'N/A';
-                    final String userEmail = userToAssign['email'] ?? 'N/A'; // For display/logging
-                    final String userPhone = userToAssign['phone'] ?? 'N/A'; // For display/logging
-                    final String userGender = userToAssign['gender'] ?? 'Male'; // For display/logging
+                        final number = int.tryParse(jerseyNumber);
+                        if (number == null || number < 1 || number > 99) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Jersey number must be between 1 and 99.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
 
-                    _assignUserToTeam(
-                      userIdHex,
-                      userName,
-                      userEmail,
-                      userPhone,
-                      userGender,
-                      _addPlayerPositionController.text.trim(),
-                      _addPlayerJerseyNumberController.text.trim(),
-                    );
-                    Navigator.of(dialogContext).pop(); // Close the dialog
-                  },
+                        // Check if jersey number is already taken
+                        final isJerseyTaken = await _isJerseyNumberTaken(
+                          jerseyNumber,
+                        );
+                        if (isJerseyTaken) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Jersey number $jerseyNumber is already taken by another player.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Close dialog and add player
+                        Navigator.of(context).pop();
+
+                        _addPlayerToTeam(
+                          _selectedAvailableUser!,
+                          _selectedPosition,
+                          jerseyNumber,
+                        );
+                      },
+                      child: const Text('Add Player'),
+                    ),
+                  ],
                 ),
-              ],
-            );
-          },
-        );
-      },
+          ),
     );
+  }
+
+  Future<void> _addPlayerToTeam(
+    Map<String, dynamic> user,
+    String position,
+    String jerseyNumber,
+  ) async {
+    try {
+      final name = user['name'] ?? 'Unknown';
+      dynamic userIdValue = user['_id'];
+
+      print('Adding player: $name to team: ${widget.teamName}');
+      print('User ID value: $userIdValue (type: ${userIdValue.runtimeType})');
+      print('Position: $position, Jersey: $jerseyNumber');
+
+      // Handle different ID formats
+      ObjectId objectId;
+      if (userIdValue is ObjectId) {
+        objectId = userIdValue;
+      } else if (userIdValue is String) {
+        if (ObjectId.isValidHexId(userIdValue)) {
+          objectId = ObjectId.fromHexString(userIdValue);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Invalid player ID format for $name.')),
+          );
+          return;
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid player ID type for $name.')),
+        );
+        return;
+      }
+
+      final usersCollection = MongoDBService.getCollection('users');
+
+      // Double-check jersey number isn't taken (race condition protection)
+      final isJerseyTaken = await _isJerseyNumberTaken(jerseyNumber);
+      if (isJerseyTaken) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Jersey number $jerseyNumber was just taken by another player.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final result = await usersCollection.updateOne(
+        {'_id': objectId},
+        {
+          '\$set': {
+            'teamName': widget.teamName,
+            'position': position,
+            'jerseyNumber': jerseyNumber,
+            'joinDate': DateTime.now().toIso8601String(),
+          },
+        },
+      );
+
+      if (result.isSuccess && result.nModified > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$name has been added to ${widget.teamName} as $position (#$jerseyNumber).',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchTeamPlayers(); // Refresh the roster
+        _fetchAvailableUsers(); // Refresh available users list
+      } else if (result.isSuccess && result.nModified == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Player $name is already up-to-date or not found.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to add $name: ${result.writeError?.errmsg ?? "Unknown database error"}',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error adding player to team: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding player: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _testMongoDBConnection() async {
@@ -616,6 +930,98 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
     }
   }
 
+  // Add method to get position-specific colors
+  Color _getPositionColor(String? position) {
+    switch (position?.toLowerCase()) {
+      case 'goaltender':
+        return Colors.orange;
+      case 'defenseman':
+        return Colors.blue;
+      case 'center':
+        return Colors.purple;
+      case 'left wing':
+        return Colors.green;
+      case 'right wing':
+        return Colors.red;
+      case 'forward':
+        return Colors.teal;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Add the _updatePlayerInfo method
+  Future<void> _updatePlayerInfo(
+    Player player,
+    String newPosition,
+    String newJerseyNumber,
+  ) async {
+    try {
+      print('Updating player: ${player.name}');
+      print('New position: $newPosition, New jersey: $newJerseyNumber');
+
+      final usersCollection = MongoDBService.getCollection('users');
+
+      // Convert player ID to ObjectId
+      ObjectId objectId;
+      if (ObjectId.isValidHexId(player.id)) {
+        objectId = ObjectId.fromHexString(player.id);
+      } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid player ID for ${player.name}.')),
+        );
+        return;
+      }
+
+      final result = await usersCollection.updateOne(
+        {'_id': objectId},
+        {
+          '\$set': {
+            'position': newPosition,
+            'jerseyNumber': newJerseyNumber,
+            'updatedAt': DateTime.now().toIso8601String(),
+          },
+        },
+      );
+
+      if (result.isSuccess && result.nModified > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${player.name} updated successfully! Position: $newPosition, Jersey: #$newJerseyNumber',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchTeamPlayers(); // Refresh the roster
+      } else if (result.isSuccess && result.nModified == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No changes made to ${player.name}.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update ${player.name}: ${result.writeError?.errmsg ?? "Unknown error"}',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating player: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating player: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -628,7 +1034,6 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
       appBar: AppBar(
         title: Text('${widget.teamName} Roster'),
         actions: [
-          // Add a test button in the app bar
           IconButton(
             icon: const Icon(Icons.bug_report),
             onPressed: _testMongoDBConnection,
@@ -676,6 +1081,8 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
               itemCount: _players.length,
               itemBuilder: (context, index) {
                 final player = _players[index];
+                  final positionColor = _getPositionColor(player.position);
+
                 // Set avatar image based on gender
                   final String avatarImage =
                       player.gender.toLowerCase() == 'female'
@@ -691,32 +1098,159 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
+                    // Add position color to the entire card
+                    color: positionColor.withOpacity(0.1),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: positionColor, width: 2),
+                      ),
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: theme.colorScheme.primaryContainer,
+                        leading: Stack(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor:
+                                  theme.colorScheme.primaryContainer,
                       backgroundImage: AssetImage(avatarImage),
-                    ),
-                    title: Text(
-                      player.name, 
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                              radius: 25,
+                            ),
+                            // Jersey number badge
+                            if (player.jerseyNumber.isNotEmpty)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: positionColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      player.jerseyNumber,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                      player.name, 
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            // Position badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: positionColor,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                player.position,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                            const SizedBox(height: 4),
+                            // Jersey number and position info
+                            Row(
+                              children: [
+                                if (player.jerseyNumber.isNotEmpty) ...[
+                                  Icon(
+                                    Icons.sports_hockey,
+                                    size: 16,
+                                    color: positionColor,
+                                  ),
+                                  const SizedBox(width: 4),
                         Text(
-                          'Position: ${player.position}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.hintColor,
-                            ),
-                        ),
+                                    '#${player.jerseyNumber}',
+                                    style: TextStyle(
+                                      color: positionColor,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                ],
+                                Icon(
+                                  Icons.sports,
+                                  size: 16,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(width: 4),
                         Text(
-                          'Email: ${player.email}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.hintColor,
+                                  player.position,
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
-                        ),
+                            const SizedBox(height: 4),
+                            // Email
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.email,
+                                  size: 16,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    player.email,
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Phone (if available)
+                            if (player.phone.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.phone,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    player.phone,
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            ],
                       ],
                     ),
                     trailing: PopupMenuButton<String>(
@@ -724,11 +1258,12 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
                         if (value == 'edit') {
                           _editPlayer(player);
                         } else if (value == 'remove') {
-                            _removePlayerFromTeam(player);
+                              _removePlayerFromTeam(player);
                         }
                       },
-                        itemBuilder:
-                            (BuildContext context) => <PopupMenuEntry<String>>[
+                          itemBuilder:
+                              (BuildContext context) =>
+                                  <PopupMenuEntry<String>>[
                         const PopupMenuItem<String>(
                           value: 'edit',
                           child: ListTile(
@@ -739,26 +1274,26 @@ class _ManageRosterScreenState extends State<ManageRosterScreen> {
                         const PopupMenuItem<String>(
                           value: 'remove',
                           child: ListTile(
-                                  leading: Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                  ),
-                                  title: Text(
-                                    'Remove',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
+                                        leading: Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red,
+                                        ),
+                                        title: Text(
+                                          'Remove',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
                           ),
                         ),
                       ],
                     ),
                     onTap: () {
-                      // Optional: Show player details
                       ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('View details for ${player.name}'),
-                          ),
+                            SnackBar(
+                              content: Text('View details for ${player.name}'),
+                            ),
                       );
                     },
+                      ),
                   ),
                 );
               },

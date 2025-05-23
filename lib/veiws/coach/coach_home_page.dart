@@ -51,7 +51,7 @@ class _HomepageState extends State<Homepage> {
     // Initialize _pages in initState where widget.teamName is accessible
     _pages = [
       _HomeTab(key: _homeTabKey), // Assign the key to _HomeTab
-      coachGames(),
+      coachGames(teamName: widget.teamName),
       ManageRosterScreen(teamName: widget.teamName),
       _ProfileTab(teamName: widget.teamName, email: widget.email),
     ];
